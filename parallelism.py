@@ -12,7 +12,7 @@ def readData(port):
         #ser.open()
         line = ser.readline()
         #q.put(line)
-        print(line)
+        print(f"Data from the port {port} line", line)
         ser.close()
 #def configuration(port):
 #    with serial.Serial(port, 115200, timeout=3) as ser:
