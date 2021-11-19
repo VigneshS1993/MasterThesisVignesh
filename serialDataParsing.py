@@ -83,7 +83,7 @@ def checkMagicPattern(data):
 def dataparser(data, readNumBytes):
     """! This function is called by parser_one_mmwave_demo_out_packet() function to read the input buffer, check the magic number, header location, length of the frame, number of detected objects and the number of TLV contained in the demo output packet.
     @param data: 1-dimension byte array holds the data read from the demo output.It is ignorant of the fact that data is coming from UART is coming from UART directly or file read
-    @param readNumBytes: The number of bytes contained in htis input byte array
+    @param readNumBytes: The number of bytes contained in this input byte array
     @return headerStartIndex : the mmw demo output packet header start location
     @return totalPacketNumBytes :  the mmw demo output packet length
     @return numDetObj: the number of detected objects contained in this mmw demo output packet
