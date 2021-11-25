@@ -6,7 +6,8 @@ The points are either in the form of (x, y) and (r, theta). Interconversion is a
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from scipy.interpolate import griddata
+from matplotlib import cm
 def createValues(radius, thetaResol=np.pi/3):
     """
     Used to create random values for the point generation in the form of (r, theta)
@@ -17,6 +18,41 @@ def createValues(radius, thetaResol=np.pi/3):
     r = np.arange(0, radius, 0.5)
     theta = np.arange(0, 2*np.pi, thetaResol)
     return r, theta
+
+def plot_countour(localPoints, pdf, xlowerEdge, ylowerEdge, xupperEdge, yupperEdge):
+    # define grid.
+    x = localPoints[:,0]
+    y = localPoints[:,1]
+    xi = np.linspace(xlowerEdge, xupperEdge, 100)
+    yi = np.linspace(yLowerEdge, yupperEdge, 100)
+    #yi = np.array([-0.83291747, -0.33291747, 0.16708253, 0.66708253])
+    #xi = np.array([-0.29778666, 0.20221334, 0.70221334, 1.20221334])
+    ## grid the data.
+    zi = griddata((x, y), pdf, (xi[None,:], yi[:,None]), method='nearest')
+    levels = [0.2, 0.4, 0.6, 0.8, 1.0]
+    print(f"{xi[None,:]}")
+    print(f"{yi[:,None]}")
+    # contour the gridded data, plotting dots at the randomly spaced data points.
+    #CS = plt.contour(xi,yi,zi,len(levels),linewidths=0.5,colors='k', levels=levels)
+    #CS = plt.contourf(xi,yi,zi,15,cmap=plt.cm.jet)
+    CS = plt.contourf(xi,yi,zi,len(levels),cmap=cm.Greys_r, levels=levels)
+    plt.colorbar() # draw colorbar
+    # plot data points.
+    # plt.scatter(x, y, marker='o', c='b', s=5)
+    plt.xlim(-2, 2)
+    plt.ylim(-2, 2)
+    plt.title('griddata test (%d points)' % npts)
+    plt.show()
+
+def createCartisianGrids(xmax, ymax, xmin, ymin):
+    """
+    Function that creates a grid of points for the set of x, y points
+    :return: x, y grid points
+    """
+    xarray = np.arange(xmin - 2, xmax + 2, 1)
+    yarray = np.arange(ymin - 2, ymax + 2, 1)
+    x_m, y_m = np.meshgrid(xarray, yarray)
+    return x_m, y_m
 
 def createMeshGrid(r, theta):
     """ Function to create mesh grid for radius and theta"""
@@ -41,16 +77,16 @@ def polar2Cartesian(points):
     y = np.array(y)
     return x, y
 
-def computeCovariance(points):
+def computeCovariance(points, weight):
     """
     Computes the covariance matrix for a set of points considered.
     :param points: The set of local points within a grid cell for which we need to compute the cov matrix
     :return: the dXd covariance matrix
     """
     mean = np.mean(points, axis=0)
-    #print("The mean is ", mean)
+    print("The statistical mean is ", mean)
+    mean = computeMean(points, weight)
     covMat = np.zeros([mean.shape[0], mean.shape[0]])
-    #covMat = np.array([])
     for point in points:
         pointTranspose = (point - mean).reshape(2, 1)
         #print("The point transpose is ", pointTranspose)
@@ -60,7 +96,7 @@ def computeCovariance(points):
     covMat /= len(points)
     return covMat
 
-def scapeCovMat(covMat, factor):
+def scaleCovMat(covMat, factor):
     """
     Used to scale the existing covariance matrix with a given scalar factor
     :param covMat: the covariance matrix itself
@@ -89,8 +125,6 @@ def pdf(covMat, points):
         #print("The point difference is ", points - mean)
         pointsTranspose = (points - mean).transpose()
         pointsNorm = (points - mean)
-        #print("The point Normal is {}, The inverse of covMat is {}, the point transpose is {}".format(pointNorm, Sigma_inv, pointTranspose))
-        #print("The size of the above variables are {}, {}, {}".format(pointNorm.shape, Sigma_inv.shape, pointTranspose.shape))
         temp = np.matmul((pointsNorm), Sigma_inv)
         fac = np.matmul(temp, pointsTranspose)
     return (np.exp(-fac / 2) / n)
@@ -98,7 +132,6 @@ def pdf(covMat, points):
 def multivariateGaussian(x, dim, covariance, mean):
     """
     function for computing the multivariate gaussian surface
-
     """
     x_normal = np.matrix(x - mean)
     #print("The normalized x matrix is ", x_normal)
@@ -111,7 +144,6 @@ def multivariateGaussian(x, dim, covariance, mean):
     factor = (np.exp(-(np.matmul(np.matmul(x_normal, np.linalg.inv(covariance)), x_norm_trans))))
     #factor = (np.exp(-(np.linalg.solve(covariance, x_normal).T.dot(x_normal)) / 2))
     return (normaliser*factor)
-
 
 def probabDenFun(mean, covariance, points, dim):
     """
@@ -134,9 +166,7 @@ def probabDenFun(mean, covariance, points, dim):
         for j in range(m):
             pdf[i, j] = multivariateGaussian([x[i, j], y[j, i]], dim, covariance, mean)
             # print("The individual pdf values are :", pdf[i, j])
-
     return pdf
-
 
 def cellPDF(radius, theta, points):
     """
@@ -160,29 +190,114 @@ def cellPDF(radius, theta, points):
             if count >= 2:
                 covMat = computeCovariance(localPoints)
 
-if __name__ == '__main__':
-    """
-    The main function for testing the values..
-    """
-    points = np.array([[0.4, 0.53], [0.8, 1.05], [0.5, 1.2], [1.0, 2.0]])
-    radius = 2.3
+
+def ndtPolar(points, radius):
     radius, theta = createValues(radius)
     radius, theta = createMeshGrid(radius, theta)
     covMat = computeCovariance(points)
     mean = np.mean(points, axis=0)
     dim = 2
     pdfValues = probabDenFun(mean, covMat, points, dim)
-    #print("The pdf values are ", pdfValues)
-    #print("The shape of pdf array is ", pdfValues.shape)
-    #r = radius[0]
-    #t = theta[:, 0]
-    #print(r)
-    #print(t)
-    x_p, y_p = np.meshgrid(points[:, 0], points[:, 1])
-    #print(x_p, y_p)
+    r_p, t_p = np.meshgrid(points[:, 0], points[:, 1])
     levels = [0.3, 0.4, 0.5]
-    plt.plot(points[:, 0], points[:, 1], 'o', markersize=10)
-    plt.contour(x_p, y_p, pdfValues, levels=levels)
+    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+    ax = plt.subplot(111, polar=True)
+    ax.plot(points[:, 0], points[:, 1], 'o', markersize=5)
+    ax.contourf(r_p, t_p, pdfValues)  # , levels=levels)
     x, y = createMGPolar2Cartesian(points)
     print("The x, y in cartesian coordinates are ", x, y)
+
+def gauss(x, y, covMat, mean):
+    X = np.column_stack((x, y))
+    print("The X matrix is ", X)
+    normaliser = (1. / (np.sqrt((2 * np.pi) ** 2 * np.linalg.det(covMat))))
+    multiplied = np.dot((X-mean[None,...]).dot(np.linalg.inv(covMat)), (X-mean[None,...]).T)
+    #return np.diag(np.exp(-1 * (multiplied)))
+    return normaliser*(np.diag(np.exp(-1 * (multiplied))))
+
+def computeMean(points, weight):
+    meanX = 0.0
+    meanY = 0.0
+    for i in range(len(points)):
+        meanX += points[i,0]*weight[i]
+        meanY += points[i, 1]*weight[i]
+    mean = np.array([meanX, meanX])
+    mean /= len(points)
+    print("Computed mean is ", mean)
+    return mean
+def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
+    cellPoints = []
+    cellLimits = []
+    count = 0
+    print("The points are ", points)
+    print("The xmin and xmax are", x_min, x_max)
+    print("The ymin and ymax are", y_min, y_max)
+    for point in points:
+        inbetweenX = x_min <= point[0] < x_max
+        inbetweenY = y_min <= point[1] < y_max
+        if inbetweenY and inbetweenX:
+            cellPoints.append([point[0], point[1]])
+            count += 1
+    covMat = np.zeros([2, 2])
+    if count >= 3:
+        cellPoints = np.array(cellPoints)
+        covMat = computeCovariance(points, weight)
+        cellLimits = np.array([[x_min, y_min], [x_max, y_max]])
+        xCell = np.linspace(x_min, x_max, 1000)
+        yCell = np.linspace(y_min, y_max, 1000)
+        return covMat, xCell, yCell, count, cellPoints
+    else:
+        return None, None, None, None, None
+
+def ndtCartesian(points, weight):
+    #x, y = polar2Cartesian(points)
+    x, y = (points[:, 0], points[:, 1])
+    print("The x and y are ", x, y)
+    xmin = round(np.amin(x), 1)
+    ymin = round(np.amin(y), 1)
+    xmax = round(np.amax(x), 1)
+    ymax = round(np.amax(y), 1)
+    print("The max and mins are ", xmin, xmax, ymin, ymax)
+    x_m, y_m = createCartisianGrids(xmax, ymax, xmin, ymin)
+    x_mrow = x_m[0]
+    y_mcol = y_m[:, 0]
+    print("The x_m and y_m for the grid are", x_mrow, y_mcol)
+    for i in range(len(x_mrow) - 1):
+        for j in range(len(y_mcol) - 1):
+            covMat, xCell, yCell, count, cellPoints = individualCellParameters(points, weight, x_mrow[i], y_mcol[j], x_mrow[i + 1], y_mcol[j + 1])
+            if count!= None and count >= 3:
+                mean = computeMean(cellPoints, weight)
+                dim = 2
+                #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)
+                x = cellPoints[:, 0]
+                y = cellPoints[:, 1]
+                x_p, y_p = np.meshgrid(x, y)
+                x_matrix, y_matrix = np.meshgrid(xCell, yCell)
+                xi = x_matrix[0]
+                yi = y_matrix[:, 0]
+                pdfValues = gauss(x, y, covMat, mean)
+                zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
+                print("The zi's are ", zi)
+                plt.contourf(xCell, yCell, zi, cmap=cm.Greys_r)
+                #print("The meshgrid points are ", x_p, y_p)
+                #print("The x_m, y_m are", x_m, y_m)
+                plt.plot(x, y, 'o', markersize=10, c='red')
+    for i in range(len(x_m)):
+        for j in range(len(y_m)):
+            plt.plot(x_m[i], y_m[j], 'o', markersize=5, c='magenta')
+
+if __name__ == '__main__':
+    """
+    The main function for testing the values..
+    """
+    #points = np.array([[0.4, 0.53], [0.8, 1.05], [0.5, 1.2], [1.0, 2.0], [0.1, 0.2], [0.2, 0.2], [0.15, 0.15], [0.115, 0.1145]])
+    points = np.array([[0.1, 0.9], [0.5, 0.5], [0.75, 0.9], [0.8, 0.2], [2.0, 0.5], [2.5, 0.8], [2.9, 0.9],
+                       [2.1, 2.4], [2.2, 2.5], [2.5, 2.2], [2.8, 2.8], [2.4, 2.4], [4.1, 4.1], [4.2, 4.2],
+                       [4.3, 4.3], [4.4, 4.4], [4.6, 4.9]])
+    radius = 2.3
+    #ndtPolar(points, radius)
+    #plt.show()
+    weight = np.ones([len(points)])
+    #print("The weight matrix is ", weight)
+    ndtCartesian(points, weight)
     plt.show()
