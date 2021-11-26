@@ -229,9 +229,9 @@ def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
     cellPoints = []
     cellLimits = []
     count = 0
-    print("The points are ", points)
-    print("The xmin and xmax are", x_min, x_max)
-    print("The ymin and ymax are", y_min, y_max)
+    #print("The points are ", points)
+    #print("The xmin and xmax are", x_min, x_max)
+    #print("The ymin and ymax are", y_min, y_max)
     for point in points:
         inbetweenX = x_min <= point[0] < x_max
         inbetweenY = y_min <= point[1] < y_max
@@ -252,23 +252,23 @@ def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
 def ndtCartesian(points, weight):
     #x, y = polar2Cartesian(points)
     x, y = (points[:, 0], points[:, 1])
-    print("The x and y are ", x, y)
+    #print("The x and y are ", x, y)
     xmin = round(np.amin(x), 1)
     ymin = round(np.amin(y), 1)
     xmax = round(np.amax(x), 1)
     ymax = round(np.amax(y), 1)
-    print("The max and mins are ", xmin, xmax, ymin, ymax)
+    #print("The max and mins are ", xmin, xmax, ymin, ymax)
     x_m, y_m = createCartisianGrids(xmax, ymax, xmin, ymin)
     x_mrow = x_m[0]
     y_mcol = y_m[:, 0]
-    print("The x_m and y_m for the grid are", x_mrow, y_mcol)
+    #print("The x_m and y_m for the grid are", x_mrow, y_mcol)
     for i in range(len(x_mrow) - 1):
         for j in range(len(y_mcol) - 1):
             covMat, xCell, yCell, count, cellPoints = individualCellParameters(points, weight, x_mrow[i], y_mcol[j], x_mrow[i + 1], y_mcol[j + 1])
             if count!= None and count >= 3:
                 mean = computeMean(cellPoints, weight)
                 dim = 2
-                #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)
+                #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)  # This function can also be used for usage in interpolation we need to have the pdfValues[0]
                 x = cellPoints[:, 0]
                 y = cellPoints[:, 1]
                 x_p, y_p = np.meshgrid(x, y)
@@ -276,8 +276,10 @@ def ndtCartesian(points, weight):
                 xi = x_matrix[0]
                 yi = y_matrix[:, 0]
                 pdfValues = gauss(x, y, covMat, mean)
+                #pdfValues = multivariateGaussian(cellPoints, 2, covMat, mean)
+                print("The pdfValues are ", pdfValues)
                 zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
-                print("The zi's are ", zi)
+                #print("The zi's are ", zi)
                 plt.contourf(xCell, yCell, zi, cmap=cm.Greys_r)
                 #print("The meshgrid points are ", x_p, y_p)
                 #print("The x_m, y_m are", x_m, y_m)
