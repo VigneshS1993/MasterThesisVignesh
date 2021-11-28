@@ -6,6 +6,7 @@ from serial import Serial as Se
 from sys import platform
 from serialDataParsing import parser_one_mmw_demo_output_packet
 import time
+import rawDataSynthesis
 def keyPress(key):
     if key == keyboard.Key.esc:
         return True
@@ -36,12 +37,14 @@ def readSerialData(port):
 
 def readDataSerially(ports):
     fused = []
+    byteCounts = []
     for port in ports:
         with Se(port, baudrate=921600) as serialPort:
             byteCount = serialPort.inWaiting()
             sData = serialPort.read(byteCount)
             fused.append(sData)
-    return fused
+            byteCounts.append(byteCount)
+    return fused, byteCounts
 #    with serial.Serial(port, 115200, timeout=3) as ser:
 
 if  __name__ == '__main__':
@@ -51,6 +54,7 @@ if  __name__ == '__main__':
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
+    configFiles = ['', '']
 
     """try:
         while True:
@@ -90,10 +94,17 @@ if  __name__ == '__main__':
     try:
         while True:
             start = time.perf_counter()
-            data = readDataSerially(dataPorts)
-            if data:
-                print("The fused data is ", data)
+            dataFrame, byteCounts = readDataSerially(dataPorts)
+            objects = []
+            if dataFrame:
+                print("The fused data is ", dataFrame)
+                for i in range(len(dataFrame)):
+                    if len(dataFrame[i]) > 0:
+                        configParameters = rawDataSynthesis.parseConfigFile(configFiles[i])
+                        dataOK, frameNumber, detObj = rawDataSynthesis.readAndParseData(dataFrame[i], configParameters)
+                        objects.append(detObj)
             stop = time.perf_counter()
             print("Time taken for the run is ", (stop - start))
+            print("The detected objects are ", objects)
     except KeyboardInterrupt:
         exit()
