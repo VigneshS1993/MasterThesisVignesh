@@ -30,8 +30,8 @@ def plot_countour(localPoints, pdf, xlowerEdge, ylowerEdge, xupperEdge, yupperEd
     ## grid the data.
     zi = griddata((x, y), pdf, (xi[None,:], yi[:,None]), method='nearest')
     levels = [0.2, 0.4, 0.6, 0.8, 1.0]
-    print(f"{xi[None,:]}")
-    print(f"{yi[:,None]}")
+    #print(f"{xi[None,:]}")
+    #print(f"{yi[:,None]}")
     # contour the gridded data, plotting dots at the randomly spaced data points.
     #CS = plt.contour(xi,yi,zi,len(levels),linewidths=0.5,colors='k', levels=levels)
     #CS = plt.contourf(xi,yi,zi,15,cmap=plt.cm.jet)
@@ -83,8 +83,8 @@ def computeCovariance(points, weight):
     :param points: The set of local points within a grid cell for which we need to compute the cov matrix
     :return: the dXd covariance matrix
     """
-    mean = np.mean(points, axis=0)
-    print("The statistical mean is ", mean)
+    #mean = np.mean(points, axis=0)
+    #print("The statistical mean is ", mean)
     mean = computeMean(points, weight)
     covMat = np.zeros([mean.shape[0], mean.shape[0]])
     for point in points:
@@ -205,11 +205,11 @@ def ndtPolar(points, radius):
     ax.plot(points[:, 0], points[:, 1], 'o', markersize=5)
     ax.contourf(r_p, t_p, pdfValues)  # , levels=levels)
     x, y = createMGPolar2Cartesian(points)
-    print("The x, y in cartesian coordinates are ", x, y)
+    #print("The x, y in cartesian coordinates are ", x, y)
 
 def gauss(x, y, covMat, mean):
     X = np.column_stack((x, y))
-    print("The X matrix is ", X)
+    #print("The X matrix is ", X)
     normaliser = (1. / (np.sqrt((2 * np.pi) ** 2 * np.linalg.det(covMat))))
     multiplied = np.dot((X-mean[None,...]).dot(np.linalg.inv(covMat)), (X-mean[None,...]).T)
     #return np.diag(np.exp(-1 * (multiplied)))
@@ -219,11 +219,11 @@ def computeMean(points, weight):
     meanX = 0.0
     meanY = 0.0
     for i in range(len(points)):
-        meanX += points[i,0]*weight[i]
+        meanX += points[i, 0]*weight[i]
         meanY += points[i, 1]*weight[i]
     mean = np.array([meanX, meanX])
     mean /= len(points)
-    print("Computed mean is ", mean)
+    #print("Computed mean is ", mean)
     return mean
 def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
     cellPoints = []
