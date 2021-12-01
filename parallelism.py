@@ -7,6 +7,7 @@ from sys import platform
 from serialDataParsing import parser_one_mmw_demo_output_packet
 import time
 import rawDataSynthesis
+import rawDataSynthesis2
 def keyPress(key):
     if key == keyboard.Key.esc:
         return True
@@ -51,12 +52,13 @@ if  __name__ == '__main__':
     if platform == 'win32':
         #dataPorts = ['COM12', 'COM10']
         dataPorts = ['COM10']
+        dataPorts = ['COM12']
         configPorts = ['COM7', 'COM8']
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\profile_2021_11_29T20_50_26_104.cfg', r'D:\Master Thesis\Config_files_for_testing\profile_2021_11_29T20_50_26_104.cfg']
-
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T12_19_40_664.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T12_19_40_664.cfg']
     """try:
         while True:
             q1 = mp.Queue()
@@ -95,6 +97,7 @@ if  __name__ == '__main__':
     try:
         while True:
             start = time.perf_counter()
+            numDetectedObj = 0
             dataFrame, byteCounts = readDataSerially(dataPorts)
             objects = []
             if dataFrame:
@@ -102,11 +105,12 @@ if  __name__ == '__main__':
                 for i in range(len(dataFrame)):
                     if len(dataFrame[i]) > 0:
                         configParameters = rawDataSynthesis.parseConfigFile(configFiles[i])
-                        dataOK, frameNumber, detObj = rawDataSynthesis.readAndParseData(dataFrame[i], configParameters)
-                        objects.append(detObj)
+                        #dataOK, frameNumber, detObj = rawDataSynthesis.readAndParseData(dataFrame[i], configParameters)
+                        rawDataSynthesis2.readAndParseData(dataFrame[i], configParameters)
+                        objects.append(numDetectedObj)
             stop = time.perf_counter()
             print("Time taken for the run is ", (stop - start))
-            print("The detected objects are ", objects)
+            print("The total number of detected objects are ", numDetectedObj)
             #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
     except KeyboardInterrupt:
         exit()
