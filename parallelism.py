@@ -49,12 +49,13 @@ def readDataSerially(ports):
 
 if  __name__ == '__main__':
     if platform == 'win32':
-        dataPorts = ['COM6', 'COM9']
+        #dataPorts = ['COM12', 'COM10']
+        dataPorts = ['COM10']
         configPorts = ['COM7', 'COM8']
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
-    configFiles = ['', '']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\profile_2021_11_29T20_50_26_104.cfg', r'D:\Master Thesis\Config_files_for_testing\profile_2021_11_29T20_50_26_104.cfg']
 
     """try:
         while True:
@@ -106,5 +107,6 @@ if  __name__ == '__main__':
             stop = time.perf_counter()
             print("Time taken for the run is ", (stop - start))
             print("The detected objects are ", objects)
+            #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
     except KeyboardInterrupt:
         exit()

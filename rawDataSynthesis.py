@@ -3,6 +3,9 @@ import serial
 import time
 import numpy as np
 
+byteBuffer = np.zeros(2**15,dtype = 'uint8')
+byteBufferLength = 0
+
 def parseConfigFile(configFileName):
     configParameters = {}
     config = [line.rstrip('\n') for line in open(configFileName)]
@@ -43,7 +46,7 @@ def parseConfigFile(configFileName):
     configParameters["numRangeBins"] = numAdcSamplesRoundTo2
     configParameters["rangeResolutionMeters"] = (3e8 * digOutSampleRate * 1e3)
     configParameters["rangeIdxToMeters"] = (3e8 * digOutSampleRate * 1e3) / (2 * freqSlopeConst * 1e12 * configParameters["numRangeBins"])
-    configParameters["dopplerResolutionMps"] = 3e8 / (2 * startFreq * 1e9) * (idleTime + rampEndTime) * 1e-6 * configParameters["numDopplerBins"] * numTxAnt)
+    configParameters["dopplerResolutionMps"] = 3e8 / ((2 * startFreq * 1e9) * (idleTime + rampEndTime) * 1e-6 * configParameters["numDopplerBins"] * numTxAnt)
     configParameters["maxRange"] = (300 * 0.9 * digOutSampleRate) / (2 * freqSlopeConst * 1e3)
     configParameters["maxVelocity"] = 3e8 / (4 * startFreq * 1e9 * (idleTime + rampEndTime) * 1e-6 * numTxAnt)
 
@@ -51,6 +54,7 @@ def parseConfigFile(configFileName):
 
 def readAndParseData(serialData, configParameters):
     global byteBuffer, byteBufferLength
+    byteBufferLength = 0
 
     #Constants
 
@@ -58,7 +62,7 @@ def readAndParseData(serialData, configParameters):
     BYTE_VEC_ACC_MAX_SIZE = 2**15
     MMWDEMO_UART_MSG_DETECTED_POINTS = 1
     MMWDEMO_UART_MSG_RANGE_PROFILE = 2
-    maxBufferSize = 2**15
+    maxBufferSize = 2**5
     magicWord = [2, 1, 4, 3, 6, 5, 8, 7]
 
     #Initialize variables
@@ -69,15 +73,20 @@ def readAndParseData(serialData, configParameters):
     detObj = {}
 
     byteVec = np.frombuffer(serialData, dtype = 'uint8')
+    print(f"The byte vector is {byteVec}")
     byteCount = len(byteVec)
+
+    print(f"The value of byteBufferLength, byteCount and maxBufferSize are {byteBufferLength}, {byteCount}, {maxBufferSize}")
 
     if (byteBufferLength + byteCount) > maxBufferSize:
         byteBuffer[byteBufferLength:byteBufferLength + byteCount] = byteVec[:byteCount]
         byteBufferLength = byteBufferLength + byteCount
+        print(f"The new byteBufferLength is {byteBufferLength}")
 
         if byteBufferLength > 16:
             # check for possible locations of the magic word
             possibleLocs = np.where(byteBuffer == magicWord[0])[0]
+            print(f"The magic word is found in {possibleLocs}")
 
             # Confirm that is the beginning of the magic word and store the index in startIdx
             startIdx = []
@@ -105,8 +114,14 @@ def readAndParseData(serialData, configParameters):
 
                 # Check that all the packet has been read
 
-                if (byteBufferLength >= totalPacketLen) and (byteBufferLength != 0):
+                #if (byteBufferLength >= totalPacketLen) and (byteBufferLength != 0):
+                if byteBufferLength != 0:
                     magicOK = 1
+                else:
+                    print(f"The byteBufferLength, the total packet length are : {byteBufferLength}, {totalPacketLen}")
+                    print("Magic word not found !! ")
+
+        print(f"The value of magic ok variable is {magicOK}")
 
         if magicOK:
             #word array to convert 4 bytes to a 32 bit number
@@ -117,7 +132,7 @@ def readAndParseData(serialData, configParameters):
             # Reading the header
             magicNumber = byteBuffer[idx:idx+8]
             idx += 8
-            version = format(np.matmul(byteBuffer[idx:idx+4]), 'x')
+            version = format(np.matmul(byteBuffer[idx:idx+4], word), 'x')
             idx += 8
             totalPacketLen = np.matmul(byteBuffer[idx:idx+4], word)
             idx += 8
@@ -132,10 +147,12 @@ def readAndParseData(serialData, configParameters):
             numTLVs = np.matmul(byteBuffer[idx:idx+4], word)
             idx += 8
 
+            print(f"The number of objects detected in this case is {numDetectedObj} and the number of TLVs is {numTLVs}")
+
             #Read the tlv messages
             for tlv in range(numTLVs):                 #### A bit ambiguous, going by the online github code !!!
                 # Check the header of the tlv message
-                tlv_type = np.matmul(byteBuffer[idx:idx+4], word))
+                tlv_type = np.matmul(byteBuffer[idx:idx+4], word)
                 idx += 4
                 tlv_length = np.matmul(byteBuffer[idx:idx+4], word)
                 idx += 4
@@ -184,6 +201,7 @@ def readAndParseData(serialData, configParameters):
                     detObj = {"numObj": tlv_numObj, "rangeIdx": rangeIdx, "range": rangeVal, "dopplerIdx": dopplerIdx,\
                               "doppler": dopplerVal, "peakVal": peakVal, "x": x, "y": y, "z": z}
                     dataOK = 1
+                    print(f"The detected objects are {detObj}")
 
                     # Remove already processed data
 
@@ -198,6 +216,10 @@ def readAndParseData(serialData, configParameters):
 
                         if byteBufferLength < 0:
                             byteBufferLength = 0
+
+    else:
+        print("The sum of the buffer length and the byteBuffer size is not > max buffer size")
+        print("So nothing is computed !!!")
 
     return dataOK, frameNumber, detObj
 
