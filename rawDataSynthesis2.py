@@ -60,12 +60,14 @@ def readAndParseData(bufferData, configParameters):
     byteBuffer = 0
     frameNumber = 0
     numDetectedObj = 0
-    detObj = {"number_of_objects": numDetectedObj, "x": [], "y": [], "z": [], "range": [], "azimuth": [], "elevation": []}
-
+    detObj = {"noObjects": numDetectedObj, "x": [], "y": [], "z": [], "range": [], "azimuth": [], "elevation": [], "snr": [], "noise": []}
+    snr = np.zeros(numDetectedObj, dtype=np.int16)
+    noise = np.zeros(numDetectedObj, dtype=np.int16)
     byteBuffer = np.frombuffer(bufferData, dtype = 'uint8')
     magicWord = byteBuffer[0:8]
     if len(byteBuffer) > (2**5) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):
         try:
+            print("Inside the buffer computation function..")
             #Initialize the pointer index
             idX = 0
             #Read the header
@@ -87,66 +89,90 @@ def readAndParseData(bufferData, configParameters):
             idX += 4
             subFrameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
             idX += 4
-            #print(magicNumber, version, totalPacketLen, platform, frameNumber, timeCpuCycles, numDetectedObj, numTLVs, subFrameNumber)
+            print("The number of tlvs are ", numTLVs)
             if numDetectedObj > 0:
                     # Read the tlv messages
                 for tlv in range(numTLVs):
-                    tly_type = np.matmul(byteBuffer[idX:idX+4]. word)
-                    idX += 4
-                    tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
-                    idX += 4
-                    # Read data depending on the tlv messages
-                    if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
-                        x = np.zeros(numDetectedObj, dtype=np.float32)
-                        y = np.zeros(numDetectedObj, dtype=np.float32)
-                        z = np.zeros(numDetectedObj, dtype=np.float32)
-                        computedAzimuth = np.zeros(numDetectedObj, dtype=np.float32)
-                        computedRange = np.zeros(numDetectedObj, dtype=np.float32)
-                        computedElevation = np.zeros(numDetectedObj, dtype=np.float32)
-                        velocity = np.zeros(numDetectedObj, dtype=np.float32)
-                        for objectNum in range(numDetectedObj):
-                            x[objectNum] = byteBuffer[idx:idX+4].view(dtype=float32)
-                            idX += 4
-                            y[objectNum] = byteBuffer[idX:idX+4].view(dtype=float32)
-                            idX += 4
-                            z[objectNum] = byteBuffer[idX:idX+4].view(dtype=float32)
-                            idx += 4
-                            velocity[objectNum] = byteBuffer[idX+4].view(dtype=float32)
-                            computedRange[objectNum] = mt.sqrt((x*x) + (y*y) + (z*z))
-                            ## azimuth computation from x and y
-                            if y == 0.0:
-                                if x >= 0.0:
-                                    computedAzimuth[objectNum] = 90
+                    print("During tlv", tlv)
+                    #print(f"The byteBuffer values and the length of the byte buffer is {byteBuffer[idX:idX+4]}, {len(byteBuffer[idX:idX+4])}")
+                    if len(byteBuffer[idX:idX+4]) > 0:
+                        tlv_type = np.matmul(byteBuffer[idX:idX+4], word)
+                        print("The tlv_type is ", tlv_type)
+                        idX += 4
+                        #print("The byteBuffer values are ", byteBuffer[idX:idX + 4])
+                        tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
+                        idX += 4
+                        # Read data depending on the tlv messages
+                        print("The value of the tlv_length is : ", tlv_length)
+                        if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
+                            x = np.zeros(numDetectedObj, dtype=np.float32)
+                            y = np.zeros(numDetectedObj, dtype=np.float32)
+                            z = np.zeros(numDetectedObj, dtype=np.float32)
+                            computedAzimuth = np.zeros(numDetectedObj, dtype=np.float32)
+                            computedRange = np.zeros(numDetectedObj, dtype=np.float32)
+                            computedElevation = np.zeros(numDetectedObj, dtype=np.float32)
+                            velocity = np.zeros(numDetectedObj, dtype=np.float32)
+                            for objectNum in range(numDetectedObj):
+                                temp = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                x[objectNum] = temp
+                                #x.append(temp)
+                                idX += 4
+                                temp = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                #y.append(temp)
+                                y[objectNum] = temp
+                                idX += 4
+                                temp = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                #z.append(temp)
+                                z[objectNum] = temp
+                                idX += 4
+                                temp = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                #velocity.append(temp)
+                                velocity[objectNum] = temp
+                                idX += 4
+                                #computedRange.append(mt.sqrt((x[objectNum] * x[objectNum]) + (y[objectNum] * y[objectNum]) + (z[objectNum] * z[objectNum]))
+                                computedRange[objectNum] = mt.sqrt((x[objectNum]*x[objectNum]) + (y[objectNum]*y[objectNum]) + (z[objectNum]*z[objectNum]))
+                                print("x, y, z and range are completed...")
+                                ## azimuth computation from x and y
+                                if y[objectNum] == 0.0:
+                                    if x[objectNum] >= 0.0:
+                                        computedAzimuth[objectNum] = 90.00
+                                    else:
+                                        computedAzimuth[objectNum] = -90.00
                                 else:
-                                    computedAzimuth[objectNum] = -90
-                            else:
-                                computedAzimuth[objectNum] = math.atan(x/y)*180/np.pi
+                                    print("Computing the azimuth here..")
+                                    computedAzimuth[objectNum] = mt.atan(x[objectNum]/y[objectNum])*180/np.pi
+                                    print("Computed the azimuth before..")
 
-                            ## calculating elevation angel from x, y, z
-                            if x == 0 and y == 0:
-                                if z >= 0.0:
-                                    computedElevation[objectNum] = 90
+                                ## calculating elevation angel from x, y, z
+                                if x[objectNum] == 0 and y[objectNum] == 0:
+                                    if z[objectNum] >= 0.0:
+                                        computedElevation[objectNum] = 90.00
+                                    else:
+                                        computedElevation[objectNum] = -90.00
                                 else:
-                                    computedElevation[objectNum] = -90
-                            else:
-                                computedElevation[objectNum] = mt.atan(z/mt.sqrt((x*x) + (y*y) + (z*z)))*180/np.pi
-
-
-                    elif tlv_type == MMDEMO_UART_MSG_SIDE_INFO:
-                        snr = np.zeros(numDetectedObj, dtype=np.int16)
-                        noise = np.zeros(numDetectedObj, dtype=np.int16)
-
-                        for objectNum in range(numDetectedObj):
-                            snr[objectNum] = byteBuffer[idX:idX+2].view(dtype=np.int16)
-                            idX += 2
-                            noise[objectNum] = byteBuffer[idX:idX+2].view(dtype=np.int16)
-                            idX += 2
-
-                    else:
-                        idX += tlv_mength
-                detObj = {"noObjects": numDetectedObj, "x": x, "y": y, "z": z, "range": computedRange,
-                              "azimuth": computedAzimuth, "elevation": computedElevation}
-                dataOK = 1
+                                    print("Computing the elevation here..")
+                                    computedElevation[objectNum] = mt.atan(z[objectNum]/mt.sqrt((x[objectNum]*x[objectNum]) + (y[objectNum]*y[objectNum]) + (z[objectNum]*z[objectNum])))*180/np.pi
+                                    print("Computed the elevation before..")
+                                print("All of the object specific calculations are done !!")
+                        elif tlv_type == MMDEMO_UART_MSG_SIDE_INFO:
+                            snr = np.zeros(numDetectedObj, dtype=np.int16)
+                            noise = np.zeros(numDetectedObj, dtype=np.int16)
+                            print("Inside the the side specific function ..")
+                            for objectNum in range(numDetectedObj):
+                                temp = byteBuffer[idX:idX+2].view(dtype=np.int16)
+                                print("The snr temp in side detection function is : ", temp)
+                                snr[objectNum] = temp
+                                idX += 2
+                                temp = byteBuffer[idX:idX+2].view(dtype=np.int16)
+                                print("The noise temp in side detection function is : ", temp)
+                                noise[objectNum] = temp
+                                idX += 2
+                            print("All of the side calculations are also done ..")
+                        else:
+                            idX += tlv_length
+            detObj = {"noObjects": numDetectedObj, "x": x, "y": y, "z": z, "range": computedRange,
+                      "azimuth": computedAzimuth, "elevation": computedElevation, "snr": snr, "noise": noise}
+            dataOK = 1
 
         except Exception as e:
             print("Error while reading/parsing incoming radar data stream! Error:")

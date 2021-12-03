@@ -52,13 +52,13 @@ if  __name__ == '__main__':
     if platform == 'win32':
         #dataPorts = ['COM12', 'COM10']
         dataPorts = ['COM10']
-        dataPorts = ['COM12']
+        #dataPorts = ['COM12']
         configPorts = ['COM7', 'COM8']
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T12_19_40_664.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T12_19_40_664.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg']
     """try:
         while True:
             q1 = mp.Queue()
@@ -101,16 +101,16 @@ if  __name__ == '__main__':
             dataFrame, byteCounts = readDataSerially(dataPorts)
             objects = []
             if dataFrame:
-                print("The fused data is ", dataFrame)
+                #print("The fused data is ", dataFrame)
                 for i in range(len(dataFrame)):
                     if len(dataFrame[i]) > 0:
                         configParameters = rawDataSynthesis.parseConfigFile(configFiles[i])
                         #dataOK, frameNumber, detObj = rawDataSynthesis.readAndParseData(dataFrame[i], configParameters)
-                        rawDataSynthesis2.readAndParseData(dataFrame[i], configParameters)
-                        objects.append(numDetectedObj)
+                        detObj, dataOK = rawDataSynthesis2.readAndParseData(dataFrame[i], configParameters)
+                        print("The detected objects are ", detObj)
             stop = time.perf_counter()
-            print("Time taken for the run is ", (stop - start))
-            print("The total number of detected objects are ", numDetectedObj)
+            #print("Time taken for the run is ", (stop - start))
+            #print("The total number of detected objects are ", numDetectedObj)
             #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
     except KeyboardInterrupt:
         exit()
