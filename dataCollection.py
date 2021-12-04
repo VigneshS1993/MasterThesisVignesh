@@ -2,17 +2,22 @@
 import concurrent.futures
 import threading
 import multiprocessing as mp
+
+import numpy as np
 from serial import Serial as Se
 from sys import platform
 from serialDataParsing import parser_one_mmw_demo_output_packet
 import time
 import rawDataSynthesis
-import rawDataSynthesis2
+import rawDataSynthesisFINAL
 def keyPress(key):
     if key == keyboard.Key.esc:
         return True
     else:
         return False
+
+def transformation(x1, y1, z1, x2, y2, z2):
+    t1 = np.matrix()
 
 def readData(port, q):
     with Se(port, baudrate=921600, timeout=3) as ser:
@@ -21,15 +26,11 @@ def readData(port, q):
         length = len(line)
         q.put(line)
         print(f"Length of the line is {length} and the data from the port {port} line ", line)
-        #result, headerStartIndex, totalPacketNumBytes, numDetObj, numTlv, subFrameNumber, detectedX_array, detectedY_array, detectedZ_array, detectedV_array, detectedRange_array, detectedAzimuth_array, detectedElevAngle_array, detectedSNR_array, detectedNoise_array = parser_one_mmw_demo_output_packet(line, len(line))
-        #print("The number of objects detected in this port are", numDetObj)
         ser.close()
 
 def readSerialData(port):
     with Se(port, baudrate=921600) as serialPort:
-        #while True:
         byteCount = serialPort.inWaiting()
-        #print(f"The byteCount in port {port} is {byteCount}")
         sData = serialPort.read(byteCount)
         if len(sData) == 0:
             sData = None
@@ -51,7 +52,7 @@ def readDataSerially(ports):
 if  __name__ == '__main__':
     if platform == 'win32':
         #dataPorts = ['COM12', 'COM10']
-        dataPorts = ['COM10']
+        dataPorts = ['COM10', 'COM12']
         #dataPorts = ['COM12']
         configPorts = ['COM7', 'COM8']
     elif platform == 'linux':
@@ -59,6 +60,9 @@ if  __name__ == '__main__':
         configPorts = ['/usb/..', '/usb/..']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg']
     """try:
         while True:
             q1 = mp.Queue()
@@ -94,6 +98,7 @@ if  __name__ == '__main__':
             print("The time taken to gather data is ", (stop-start))
     except KeyboardInterrupt:
         exit()"""
+    count = 0
     try:
         while True:
             start = time.perf_counter()
@@ -104,10 +109,13 @@ if  __name__ == '__main__':
                 #print("The fused data is ", dataFrame)
                 for i in range(len(dataFrame)):
                     if len(dataFrame[i]) > 0:
-                        configParameters = rawDataSynthesis.parseConfigFile(configFiles[i])
-                        #dataOK, frameNumber, detObj = rawDataSynthesis.readAndParseData(dataFrame[i], configParameters)
-                        detObj, dataOK = rawDataSynthesis2.readAndParseData(dataFrame[i], configParameters)
-                        print("The detected objects are ", detObj)
+                        configParameters = rawDataSynthesisFINAL.parseConfigFile(configFiles[i])
+                        detObj, dataOK = rawDataSynthesisFINAL.readAndParseData(dataFrame[i], configParameters)
+                        if dataOK:
+                            print("The port number : ", i+1)
+                            count += 1
+                            print("The detected objects are ", detObj)
+                            print("The count of the run is : ", count)
             stop = time.perf_counter()
             #print("Time taken for the run is ", (stop - start))
             #print("The total number of detected objects are ", numDetectedObj)

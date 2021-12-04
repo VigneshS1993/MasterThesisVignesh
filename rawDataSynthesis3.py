@@ -67,7 +67,7 @@ def readAndParseData(bufferData, configParameters):
     magicWord = byteBuffer[0:8]
     if len(byteBuffer) > (2**5) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):
         try:
-            print("Inside the buffer computation function..")
+            #print("Inside the buffer computation function..")
             #Initialize the pointer index
             idX = 0
             #Read the header
@@ -89,21 +89,21 @@ def readAndParseData(bufferData, configParameters):
             idX += 4
             subFrameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
             idX += 4
-            print("The number of tlvs are ", numTLVs)
+            #print("The number of tlvs are ", numTLVs)
             if numDetectedObj > 0:
                     # Read the tlv messages
                 for tlv in range(numTLVs):
-                    print("During tlv", tlv)
+                    #print("During tlv", tlv)
                     #print(f"The byteBuffer values and the length of the byte buffer is {byteBuffer[idX:idX+4]}, {len(byteBuffer[idX:idX+4])}")
                     if len(byteBuffer[idX:idX+4]) > 0:
                         tlv_type = np.matmul(byteBuffer[idX:idX+4], word)
-                        print("The tlv_type is ", tlv_type)
+                        #print("The tlv_type is ", tlv_type)
                         idX += 4
                         #print("The byteBuffer values are ", byteBuffer[idX:idX + 4])
                         tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
                         idX += 4
                         # Read data depending on the tlv messages
-                        print("The value of the tlv_length is : ", tlv_length)
+                        #print("The value of the tlv_length is : ", tlv_length)
                         if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
                             #x = np.zeros(numDetectedObj, dtype=np.float32)
                             x = []
@@ -123,7 +123,9 @@ def readAndParseData(bufferData, configParameters):
                                 tempx = byteBuffer[idX:idX+4].view(dtype=np.float32)
                                 if len(tempx) == 1:
                                     #x[objectNum] = temp[0]
+                                    #print("The length of temp x is 1..")
                                     x.append(tempx[0])
+                                    #print("The first x is appended...")
                                 idX += 4
                                 tempy = byteBuffer[idX:idX+4].view(dtype=np.float32)
                                 if len(tempy) == 1:
@@ -134,15 +136,17 @@ def readAndParseData(bufferData, configParameters):
                                 if len(tempz) == 1:
                                     z.append(tempz[0])
                                     #z[objectNum] = temp[0]
+                                    #print("z is appended...")
                                 idX += 4
                                 tempv = byteBuffer[idX:idX+4].view(dtype=np.float32)
                                 velocity.append(tempv[0])
                                 #velocity[objectNum] = temp[0]
                                 idX += 4
                                 tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
-                                computedRange.append(tempR[0])
+                                computedRange.append(tempR)
+                                #print("Range is also appended...")
                                 #computedRange[objectNum] = mt.sqrt((x[objectNum]*x[objectNum]) + (y[objectNum]*y[objectNum]) + (z[objectNum]*z[objectNum]))
-                                print("x, y, z and range are completed...")
+                                #print("x, y, z and range are completed...")
                                 ## azimuth computation from x and y
                                 if tempy == 0.0:
                                     if tempx >= 0.0:
@@ -158,7 +162,7 @@ def readAndParseData(bufferData, configParameters):
                                     #print("Computed the azimuth before..")
 
                                 ## calculating elevation angel from x, y, z
-                                if tempX == 0 and tempy == 0:
+                                if tempx == 0 and tempy == 0:
                                     if tempz >= 0.0:
                                         tempCE = 90.00
                                         computedElevation.append(tempCE)
@@ -167,10 +171,12 @@ def readAndParseData(bufferData, configParameters):
                                         computedElevation.append(tempCE)
                                 else:
                                     #print("Computing the elevation here..")
-                                    tempCE = mt.atan(tempz/mt.sqrt((tempx * tempx]) + (tempy * tempy) + (tempz * tempz)))*180/np.pi
+                                    tempCE = mt.atan(tempz/mt.sqrt((tempx * tempx) + (tempy * tempy) + (tempz * tempz)))*180/np.pi
                                     computedElevation.append(tempCE)
                                     #print("Computed the elevation before..")
-                                print("All of the object specific calculations are done !!")
+                                #print("All of the object specific calculations are done !!")
+                            else:
+                                idX += tlv_length
                         """elif tlv_type == MMDEMO_UART_MSG_SIDE_INFO:
                             snr = np.zeros(numDetectedObj, dtype=np.int16)
                             noise = np.zeros(numDetectedObj, dtype=np.int16)
@@ -185,8 +191,6 @@ def readAndParseData(bufferData, configParameters):
                                 noise[objectNum] = temp
                                 idX += 2
                             print("All of the side calculations are also done ..")"""
-                        else:
-                            idX += tlv_length
             detObj = {"noObjects": numDetectedObj, "x": x, "y": y, "z": z, "range": computedRange,
                       "azimuth": computedAzimuth, "elevation": computedElevation}#, "snr": snr, "noise": noise}
             dataOK = 1
