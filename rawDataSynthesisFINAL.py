@@ -11,7 +11,7 @@ def sensorConfiguration(fileName, configPorts):
         try:
             confPort = serial.Serial(port, 115200)
         except serial.SerialException as se:
-            print("Error occured and it is : ")
+            print("Error occurred and it is : ")
             print(str(se))
             return
         try:
@@ -86,7 +86,7 @@ def readAndParseData(bufferData, configParameters):
     detObj = {"noObjects": numDetectedObj, "x": [], "y": [], "z": [], "range": [], "azimuth": [], "elevation": [], "velocity" : []}#, "snr": [], "noise": []}
     byteBuffer = np.frombuffer(bufferData, dtype = 'uint8')
     magicWord = byteBuffer[0:8]
-    if len(byteBuffer) > (2**5) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):
+    if len(byteBuffer) > 100 and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):
         try:
             print("The total length of the buffer is ", len(byteBuffer))
             idX = 0
@@ -151,31 +151,42 @@ def readAndParseData(bufferData, configParameters):
                                 if len(byteBuffer[idX:idX+4]) < 4:
                                     break
                                 print("Before unpacking x")
+                                print(byteBuffer[idX:idX + 4])
                                 xi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                                 print("Unpacked x")
                                 idX += 4
                                 x.append(xi)
-
+                                print(byteBuffer[idX:idX + 4])
+                                if len(byteBuffer[idX:idX+4]) < 4:
+                                    x.pop()
+                                    break
                                 # convert byte4 to byte7 to float y value
                                 yi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                                 print("Unpacked y")
                                 idX += 4
                                 y.append(yi)
-
+                                print(byteBuffer[idX:idX + 4])
+                                if len(byteBuffer[idX:idX+4]) < 4:
+                                    x.pop()
+                                    y.pop()
+                                    break
                                 # convert byte8 to byte11 to float z value
                                 zi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                                 print("Unpacked z")
                                 idX += 4
                                 z.append(zi)
-
+                                print(byteBuffer[idX:idX + 4])
+                                if len(byteBuffer[idX:idX+4]) < 4:
+                                    x.pop()
+                                    y.pop()
+                                    z.pop()
+                                    break
                                 # convert byte12 to byte15 to float v value
                                 vi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                                 print("Unpacked velocity")
                                 idX += 4
                                 velocity.append(vi)
-
                                 tempR = mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))
-
                                 #tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
                                 computedRange.append(tempR)
                                 if yi == 0.0:
