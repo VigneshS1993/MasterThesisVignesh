@@ -1,0 +1,33 @@
+"""count = 0
+    validCount = 0
+    x = np.array([])
+    y = np.array([])
+    z = np.array([])
+    rangeVal = np.array([])
+    azimuthVal = np.array([])
+    elevationVal = np.array([])
+    configFile = r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg'
+    configPorts = configPorts = ['COM11', 'COM13']
+    #rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
+    while validCount <= 5:
+        while count <= 20:
+            objects = dataCollection.serialData()
+            if objects:
+                for object in objects:
+                    if len(object["x"]) > 0:
+                        x = np.append(x, object["x"])
+                        y = np.append(y, object["y"])
+                        z = np.append(z, object["z"])
+                        rangeVal = np.append(rangeVal, object["range"])
+                        azimuthVal = np.append(azimuthVal, object["azimuth"])
+                        elevationVal = np.append(elevationVal, object["elevation"])
+                        count += 1
+                pointsXY = np.column_stack([x, y])
+                print("The points in XY coordinate system is ", pointsXY)
+                pointsRA = np.column_stack([rangeVal, azimuthVal])
+                validCount += 1
+    radius = 4.0
+    weight = np.ones([len(pointsXY)])
+    #print("The weight matrix is ", weight)
+    #ndtCartesian(pointsXY, weight)
+    plt.show()"""

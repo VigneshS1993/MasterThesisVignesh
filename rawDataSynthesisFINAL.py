@@ -2,6 +2,29 @@ import serial
 import time
 import numpy as np
 import math as mt
+import struct
+import math
+import binascii
+import codecs
+def sensorConfiguration(fileName, configPorts):
+    for port in configPorts:
+        try:
+            confPort = serial.Serial(port, 115200)
+        except serial.SerialException as se:
+            print("Error occured and it is : ")
+            print(str(se))
+            return
+        try:
+            with open(fileName, 'r') as configFile:
+                commands = [command.rstrip('\r\n') for command in configFile]
+                for command in commands:
+                    confPort.write((command + '\n').encode())
+                # for command in configFile:
+                print("Successfully sent all the commands as CLI..")
+                confPort.close()
+        except FileNotFoundError as fe:
+            print("No file exists..")
+
 def parseConfigFile(configFileName):
     configParameters = {}
     config = [line.rstrip('\n') for line in open(configFileName)]
@@ -65,6 +88,7 @@ def readAndParseData(bufferData, configParameters):
     magicWord = byteBuffer[0:8]
     if len(byteBuffer) > (2**5) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):
         try:
+            print("The total length of the buffer is ", len(byteBuffer))
             idX = 0
             magicNumber = byteBuffer[0:8]
             idX += 8
@@ -100,49 +124,81 @@ def readAndParseData(bufferData, configParameters):
                             computedElevation = []
                             velocity = []
                             for objectNum in range(numDetectedObj):
-                                tempx = byteBuffer[idX:idX+4].view(dtype=np.float32)
-                                if len(tempx) == 1:
-                                    x.append(tempx[0])
+                                """tempx = byteBuffer[idX:idX+4].view(dtype=np.float64)
+                                #xi = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset:tlvStart + offset + 4:1]), 'hex'))[0]
+                                #if len(tempx) == 1:
+                                #    x.append(tempx[0])
                                 else:
                                     break
                                 idX += 4
-                                tempy = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                tempy = byteBuffer[idX:idX+4].view(dtype=np.float64)
                                 if len(tempy) == 1:
                                     y.append(tempy[0])
                                 else:
                                     break
                                 idX += 4
-                                tempz = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                tempz = byteBuffer[idX:idX+4].view(dtype=np.float64)
                                 if len(tempz) == 1:
                                     z.append(tempz[0])
                                 else:
                                     break
                                 idX += 4
-                                tempv = byteBuffer[idX:idX+4].view(dtype=np.float32)
+                                tempv = byteBuffer[idX:idX+4].view(dtype=np.float64)
                                 if len(tempv) == 1:
                                     velocity.append(tempv[0])
+                                idX += 4"""
+
+                                if len(byteBuffer[idX:idX+4]) < 4:
+                                    break
+                                print("Before unpacking x")
+                                xi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                                print("Unpacked x")
                                 idX += 4
-                                tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
+                                x.append(xi)
+
+                                # convert byte4 to byte7 to float y value
+                                yi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                                print("Unpacked y")
+                                idX += 4
+                                y.append(yi)
+
+                                # convert byte8 to byte11 to float z value
+                                zi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                                print("Unpacked z")
+                                idX += 4
+                                z.append(zi)
+
+                                # convert byte12 to byte15 to float v value
+                                vi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                                print("Unpacked velocity")
+                                idX += 4
+                                velocity.append(vi)
+
+                                tempR = mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))
+
+                                #tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
                                 computedRange.append(tempR)
-                                if tempy == 0.0:
-                                    if tempx >= 0.0:
+                                if yi == 0.0:
+                                    if xi >= 0.0:
                                         tempCA = 90.00
                                         computedAzimuth.append(tempCA)
                                     else:
                                         tempCA = -90.00
                                         computedAzimuth.append(tempCA)
                                 else:
-                                    tempCA = mt.atan(tempx/tempy)*180/np.pi
+                                    #tempCA = mt.atan(tempx[0]/tempy[0])*180/np.pi
+                                    tempCA = mt.atan(xi / yi) * 180 / np.pi
                                     computedAzimuth.append(tempCA)
-                                if tempx == 0 and tempy == 0:
-                                    if tempz >= 0.0:
+                                if xi == 0 and yi == 0:
+                                    if zi >= 0.0:
                                         tempCE = 90.00
                                         computedElevation.append(tempCE)
                                     else:
                                         tempCE = -90.00
                                         computedElevation.append(tempCE)
                                 else:
-                                    tempCE = mt.atan(tempz/mt.sqrt((tempx * tempx) + (tempy * tempy) + (tempz * tempz)))*180/np.pi
+                                    #tempCE = mt.atan(tempz[0]/mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0])))*180/np.pi
+                                    tempCE = mt.atan(zi / mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))) * 180 / np.pi
                                     computedElevation.append(tempCE)
                             else:
                                 idX += tlv_length

@@ -8,6 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from matplotlib import cm
+import dataCollection
+import rawDataSynthesisFINAL
+from time import sleep
+
+
 def createValues(radius, thetaResol=np.pi/3):
     """
     Used to create random values for the point generation in the form of (r, theta)
@@ -251,6 +256,7 @@ def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
 
 def ndtCartesian(points, weight):
     #x, y = polar2Cartesian(points)
+    print("The point in the function is ", points)
     x, y = (points[:, 0], points[:, 1])
     #print("The x and y are ", x, y)
     xmin = round(np.amin(x), 1)
@@ -280,26 +286,100 @@ def ndtCartesian(points, weight):
                 print("The pdfValues are ", pdfValues)
                 zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
                 #print("The zi's are ", zi)
-                plt.contourf(xCell, yCell, zi, cmap=cm.Greys_r)
+                plt.contourf(xCell, yCell, zi, cmap=cm.binary)
                 #print("The meshgrid points are ", x_p, y_p)
                 #print("The x_m, y_m are", x_m, y_m)
                 plt.plot(x, y, 'o', markersize=10, c='red')
+                plt.grid(color='black', linestyle='--',linewidth=0.5)  # visible=true, axis='both', xdata=xi, ydata=yi, markeredgecolor='r')
+                plt.xticks(x_mrow)
+                plt.yticks(y_mcol)
     for i in range(len(x_m)):
         for j in range(len(y_m)):
             plt.plot(x_m[i], y_m[j], 'o', markersize=5, c='magenta')
+
+def ndtPolar(points, weight):
+    range, azimuth = (points[:, 0], points[:, 1])
+    rangeMin = 0.0
+    azimuthMin = 0.0
+    rangeMax = round(np.amax(range), 1)
+    azimuthMax = 2*np.pi
+    r, theta = createMeshGrid(range, azimuth)
+    r_mrow = r[0]
+    a_mcol = theta[:, 0]
+    for i in range(len(r_mrow) - 1):
+        for j in range(len(a_mcol) - 1):
+            covMat, rCell, aCell, count, cellPoints = individualCellParameters(points, weight, r_mrow[i], a_mcol[j], r_mrow[i + 1], a_mcol[j + 1])
+            if count != None and count >= 3:
+                mean = computeMean(cellPoints, weight)
+                dim = 2
+                rangeVals = cellPoints[:, 0]
+                azimuthVals = cellPoints[:, 1]
+                r_p, azimuth_p = np.meshgrid(rangeVals, azimuthVals)
+                r_matrix, a_matrix = np.meshgrid(rCell, aCell)
+                ri = r_matrix[0]
+                ti = a_matrix[:, 0]
+                pdfValues = gauss(rangeVals, azimuthVals, covMat, mean)
+                # pdfValues = multivariateGaussian(cellPoints, 2, covMat, mean)
+                print("The pdfValues are ", pdfValues)
+                zi = griddata((rangeVals, azimuthVals), pdfValues, (ri[None, :], ti[:, None]), method='cubic')
+                ax = plt.subplot(111, polar=True)
+                #ax.plot(r_matrix, a_matrix, 'o')
+                ax.plot(points[:, 1], points[:, 0], 'o', markersize=10)
+                plt.contourf(rCell, aCell, zi, cmap=cm.Greys_r)
 
 if __name__ == '__main__':
     """
     The main function for testing the values..
     """
     #points = np.array([[0.4, 0.53], [0.8, 1.05], [0.5, 1.2], [1.0, 2.0], [0.1, 0.2], [0.2, 0.2], [0.15, 0.15], [0.115, 0.1145]])
-    points = np.array([[0.1, 0.9], [0.5, 0.5], [0.75, 0.9], [0.8, 0.2], [2.0, 0.5], [2.5, 0.8], [2.9, 0.9],
+    objects = {}
+    """points = np.array([[0.1, 0.9], [0.5, 0.5], [0.75, 0.9], [0.8, 0.2], [2.0, 0.5], [2.5, 0.8], [2.9, 0.9],
                        [2.1, 2.4], [2.2, 2.5], [2.5, 2.2], [2.8, 2.8], [2.4, 2.4], [4.1, 4.1], [4.2, 4.2],
                        [4.3, 4.3], [4.4, 4.4], [4.6, 4.9]])
-    radius = 2.3
-    #ndtPolar(points, radius)
-    #plt.show()
-    weight = np.ones([len(points)])
+    print("The trial points are ", points)"""
+    #weight = np.ones([len(points)])
     #print("The weight matrix is ", weight)
-    ndtCartesian(points, weight)
+    #plt.rcParams['figure.facecolor'] = 'black'
+    #ndtCartesian(points, weight)
+    #fig = plt.figure()
+    #fig.patch.set_facecolor('black')
+    #ndtCartesian(points, radius)
+    #ax = plt.axes()
+    #ax.set_facecolor('black')
+    #plt.fill('black')
+
+    count = 0
+    validCount = 0
+    x = np.array([])
+    y = np.array([])
+    z = np.array([])
+    rangeVal = np.array([])
+    azimuthVal = np.array([])
+    elevationVal = np.array([])
+    configFile = r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg'
+    configPorts = ['COM11', 'COM13']
+    #rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
+    sleep(3.0)
+    while validCount <= 5:
+        while count <= 20:
+            objects = dataCollection.serialData()
+            if objects:
+                for object in objects:
+                    if len(object["x"]) > 0:
+                        x = np.append(x, object["x"])
+                        y = np.append(y, object["y"])
+                        z = np.append(z, object["z"])
+                        rangeVal = np.append(rangeVal, object["range"])
+                        azimuthVal = np.append(azimuthVal, object["azimuth"])
+                        elevationVal = np.append(elevationVal, object["elevation"])
+                        count += 1
+                pointsXY = np.column_stack([x, y])
+                #print("The points in XY coordinate system is ", pointsXY)
+                pointsRA = np.column_stack([rangeVal, azimuthVal])
+                validCount += 1
+    radius = 4.0
+    weight = np.ones([len(pointsXY)])
+    # print("The weight matrix is ", weight)
+    print("The final set of points before computation is : ", pointsXY)
+    ndtCartesian(pointsXY, weight)
     plt.show()

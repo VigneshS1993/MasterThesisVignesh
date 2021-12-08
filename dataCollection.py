@@ -10,6 +10,7 @@ from serialDataParsing import parser_one_mmw_demo_output_packet
 import time
 import rawDataSynthesis
 import rawDataSynthesisFINAL
+
 def keyPress(key):
     if key == keyboard.Key.esc:
         return True
@@ -49,12 +50,13 @@ def readDataSerially(ports):
     return fused, byteCounts
 #    with serial.Serial(port, 115200, timeout=3) as ser:
 
-if  __name__ == '__main__':
+#if  __name__ == '__main__':
+def serialData():
     if platform == 'win32':
         #dataPorts = ['COM12', 'COM10']
         dataPorts = ['COM10', 'COM12']
         #dataPorts = ['COM12']
-        configPorts = ['COM7', 'COM8']
+        configPorts = ['COM11', 'COM13']
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
@@ -63,6 +65,7 @@ if  __name__ == '__main__':
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg']
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg']
     """try:
         while True:
             q1 = mp.Queue()
@@ -100,25 +103,28 @@ if  __name__ == '__main__':
         exit()"""
     count = 0
     try:
-        while True:
-            start = time.perf_counter()
-            numDetectedObj = 0
-            dataFrame, byteCounts = readDataSerially(dataPorts)
-            objects = []
-            if dataFrame:
-                #print("The fused data is ", dataFrame)
-                for i in range(len(dataFrame)):
-                    if len(dataFrame[i]) > 0:
-                        configParameters = rawDataSynthesisFINAL.parseConfigFile(configFiles[i])
-                        detObj, dataOK = rawDataSynthesisFINAL.readAndParseData(dataFrame[i], configParameters)
-                        if dataOK:
-                            print("The port number : ", i+1)
-                            count += 1
-                            print("The detected objects are ", detObj)
-                            print("The count of the run is : ", count)
-            stop = time.perf_counter()
-            #print("Time taken for the run is ", (stop - start))
-            #print("The total number of detected objects are ", numDetectedObj)
-            #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
+        #print("Inside hte try block..")
+        start = time.perf_counter()
+        numDetectedObj = 0
+        dataFrame, byteCounts = readDataSerially(dataPorts)
+        #print("The dataFrame is ", dataFrame)
+        objects = []
+        if dataFrame:
+            #print("The fused data is ", dataFrame)
+            for i in range(len(dataFrame)):
+                if len(dataFrame[i]) > 0:
+                    configParameters = rawDataSynthesisFINAL.parseConfigFile(configFiles[i])
+                    detObj, dataOK = rawDataSynthesisFINAL.readAndParseData(dataFrame[i], configParameters)
+                    if dataOK:
+                        print("The port number : ", i+1)
+                        count += 1
+                        print("The detected objects are ", detObj)
+                        print("The count of the run is : ", count)
+                        objects.append(detObj)
+        stop = time.perf_counter()
+        #print("Time taken for the run is ", (stop - start))
+        #print("The total number of detected objects are ", numDetectedObj)
+        #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
+        return objects
     except KeyboardInterrupt:
         exit()
