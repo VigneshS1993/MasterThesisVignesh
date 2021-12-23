@@ -1,3 +1,5 @@
+## Logic for the serial data communication..
+
 """count = 0
     validCount = 0
     x = np.array([])
@@ -31,3 +33,99 @@
     #print("The weight matrix is ", weight)
     #ndtCartesian(pointsXY, weight)
     plt.show()"""
+
+
+
+"""tempx = byteBuffer[idX:idX+4].view(dtype=np.float64)
+                                #xi = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset:tlvStart + offset + 4:1]), 'hex'))[0]
+                                #if len(tempx) == 1:
+                                #    x.append(tempx[0])
+                                else:
+                                    break
+                                idX += 4
+                                tempy = byteBuffer[idX:idX+4].view(dtype=np.float64)
+                                if len(tempy) == 1:
+                                    y.append(tempy[0])
+                                else:
+                                    break
+                                idX += 4
+                                tempz = byteBuffer[idX:idX+4].view(dtype=np.float64)
+                                if len(tempz) == 1:
+                                    z.append(tempz[0])
+                                else:
+                                    break
+                                idX += 4
+                                tempv = byteBuffer[idX:idX+4].view(dtype=np.float64)
+                                if len(tempv) == 1:
+                                    velocity.append(tempv[0])
+                                idX += 4"""
+
+##Parallelysing concept
+
+"""try:
+    while True:
+        q1 = mp.Queue()
+        q2 = mp.Queue()
+        p1 = mp.Process(target=readData, args=('COM9',q1))
+        p2 = mp.Process(target=readData, args=('COM6',q2))
+        p1.start()
+        p2.start()
+        p1.join()
+        p2.join()
+        serialData = []
+        ## Not able to achieve the q.empty logic for getting all the values from the queue
+        serialData.append(q1.get())
+        serialData.append(q2.get())
+        print("The appended serial data is ", serialData)
+
+except KeyboardInterrupt:
+    exit()"""
+"""try:
+    while True:
+        start = time.perf_counter()
+        q1 = mp.Queue()
+        q2 = mp.Queue()
+        sensorData = []
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = [executor.submit(readSerialData, port) for port in dataPorts]
+            for f in concurrent.futures.as_completed(results):
+                if f.result() != None:
+                    sensorData.append(f.result())
+        if sensorData:
+            print(f"The sensor data is {sensorData}")
+        stop = time.perf_counter()
+        print("The time taken to gather data is ", (stop-start))
+except KeyboardInterrupt:
+    exit()"""
+
+
+## Test Values
+
+#points = np.array([[0.4, 0.53], [0.8, 1.05], [0.5, 1.2], [1.0, 2.0], [0.1, 0.2], [0.2, 0.2], [0.15, 0.15], [0.115, 0.1145]])
+    objects = {}
+    """points = np.array([[0.1, 0.9], [0.5, 0.5], [0.75, 0.9], [0.8, 0.2], [2.0, 0.5], [2.5, 0.8], [2.9, 0.9],
+                       [2.1, 2.4], [2.2, 2.5], [2.5, 2.2], [2.8, 2.8], [2.4, 2.4], [4.1, 4.1], [4.2, 4.2],
+                       [4.3, 4.3], [4.4, 4.4], [4.6, 4.9]])
+    print("The trial points are ", points)"""
+    #weight = np.ones([len(points)])
+    #print("The weight matrix is ", weight)
+    #plt.rcParams['figure.facecolor'] = 'black'
+    #ndtCartesian(points, weight)
+    #fig = plt.figure()
+    #fig.patch.set_facecolor('black')
+    #ndtCartesian(points, radius)
+    #ax = plt.axes()
+    #ax.set_facecolor('black')
+    #plt.fill('black')
+
+
+if objects :
+    """for object in objects:
+                        if len(object["x"]) > 0 and len:
+                            x = np.append(x, object["x"])
+                            y = np.append(y, object["y"])
+                            z = np.append(z, object["z"])
+                            rangeVal = np.append(rangeVal, object["range"])
+                            azimuthVal = np.append(azimuthVal, object["azimuth"])
+                            elevationVal = np.append(elevationVal, object["elevation"])
+                            count += 1"""

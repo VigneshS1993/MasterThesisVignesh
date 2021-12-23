@@ -76,7 +76,7 @@ def readAndParseData(serialData, configParameters):
     print(f"The byte vector is {byteVec}")
     byteCount = len(byteVec)
 
-    print(f"The value of byteBufferLength, byteCount and maxBufferSize are {byteBufferLength}, {byteCount}, {maxBufferSize}")
+    #print(f"The value of byteBufferLength, byteCount and maxBufferSize are {byteBufferLength}, {byteCount}, {maxBufferSize}")
 
     if (byteBufferLength + byteCount) > maxBufferSize:
         byteBuffer[byteBufferLength:byteBufferLength + byteCount] = byteVec[:byteCount]

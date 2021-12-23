@@ -11,6 +11,9 @@ from matplotlib import cm
 import dataCollection
 import rawDataSynthesisFINAL
 from time import sleep
+from sklearn.mixture import GaussianMixture
+
+import transformations
 
 
 def createValues(radius, thetaResol=np.pi/3):
@@ -49,14 +52,19 @@ def plot_countour(localPoints, pdf, xlowerEdge, ylowerEdge, xupperEdge, yupperEd
     plt.title('griddata test (%d points)' % npts)
     plt.show()
 
-def createCartisianGrids(xmax, ymax, xmin, ymin):
+def createCartisianGrids(xmax, ymax, xmin, ymin, cellSize):
     """
     Function that creates a grid of points for the set of x, y points
     :return: x, y grid points
     """
-    xarray = np.arange(xmin - 2, xmax + 2, 1)
-    yarray = np.arange(ymin - 2, ymax + 2, 1)
+    xarray = np.arange(xmin, xmax, cellSize)
+    xarray = xarray.round(decimals=2)
+    yarray = np.arange(ymin, ymax, cellSize)
+    yarray = yarray.round(decimals=2)
     x_m, y_m = np.meshgrid(xarray, yarray)
+    #print("The x vector and y vectors are ", x_m, y_m)
+    #plt.plot(x_m, y_m)
+    #plt.grid()
     return x_m, y_m
 
 def createMeshGrid(r, theta):
@@ -146,7 +154,7 @@ def multivariateGaussian(x, dim, covariance, mean):
     #print("The value of the normaliser is ", normaliser)
     coavriance = np.matrix(covariance)
     x_norm_trans = x_normal.transpose()
-    factor = (np.exp(-(np.matmul(np.matmul(x_normal, np.linalg.inv(covariance)), x_norm_trans))))
+    factor = (np.exp(-(np.matmul(np.matmul(x_normal, np.linalg.inv(covariance)), x_norm_trans)) / 2))
     #factor = (np.exp(-(np.linalg.solve(covariance, x_normal).T.dot(x_normal)) / 2))
     return (normaliser*factor)
 
@@ -171,6 +179,7 @@ def probabDenFun(mean, covariance, points, dim):
         for j in range(m):
             pdf[i, j] = multivariateGaussian([x[i, j], y[j, i]], dim, covariance, mean)
             # print("The individual pdf values are :", pdf[i, j])
+
     return pdf
 
 def cellPDF(radius, theta, points):
@@ -217,8 +226,12 @@ def gauss(x, y, covMat, mean):
     #print("The X matrix is ", X)
     normaliser = (1. / (np.sqrt((2 * np.pi) ** 2 * np.linalg.det(covMat))))
     multiplied = np.dot((X-mean[None,...]).dot(np.linalg.inv(covMat)), (X-mean[None,...]).T)
+    print("The multiplied variable in the pdf expression is : ", multiplied)
     #return np.diag(np.exp(-1 * (multiplied)))
-    return normaliser*(np.diag(np.exp(-1 * (multiplied))))
+
+    pdf = normaliser*(np.diag(np.exp(-1 * (multiplied / 2))))
+    #pdf = normaliser*(np.exp(-1 * (multiplied)))
+    return pdf
 
 def computeMean(points, weight):
     meanX = 0.0
@@ -248,30 +261,108 @@ def individualCellParameters(points, weight, x_min, y_min, x_max, y_max):
         cellPoints = np.array(cellPoints)
         covMat = computeCovariance(points, weight)
         cellLimits = np.array([[x_min, y_min], [x_max, y_max]])
-        xCell = np.linspace(x_min, x_max, 1000)
-        yCell = np.linspace(y_min, y_max, 1000)
+        xCell = np.linspace(x_min, x_max, 50)
+        yCell = np.linspace(y_min, y_max, 50)
         return covMat, xCell, yCell, count, cellPoints
     else:
         return None, None, None, None, None
 
+def identicalPointsRemoval(cellPoints):
+    weight = []
+    count1 = 0
+    count2 = 0
+    count = 1
+    """for i in range(len(cellPoints)):
+        print(f"The {i+1}th point is {cellPoints[i]}")"""
+
+    while count1 < len(cellPoints):
+        count2 = count1 + 1
+        while count2 < len(cellPoints):
+            if (cellPoints[count1][0] == cellPoints[count2][0] and cellPoints[count1][1] == cellPoints[count2][1]):
+                #print("Identical points found!!!!")
+                count += 1
+                cellPoints.pop(count2)
+            count2 += 1
+        weight.append(count)
+        count1 += 1
+        count = 1
+
+    cellPoints = np.array(cellPoints)
+    #print("The final list of weights and points are", weight, cellPoints)
+    return cellPoints, weight
+
 def ndtCartesian(points, weight):
     #x, y = polar2Cartesian(points)
-    print("The point in the function is ", points)
+    #print("The point in the function is ", points)
     x, y = (points[:, 0], points[:, 1])
+    gmm = GaussianMixture(n_components=2)
     #print("The x and y are ", x, y)
-    xmin = round(np.amin(x), 1)
-    ymin = round(np.amin(y), 1)
-    xmax = round(np.amax(x), 1)
-    ymax = round(np.amax(y), 1)
+    xmin = -2.0
+    ymin = -2.0
+    xmax = 2.0
+    ymax = 2.0
+    #ymin = sround(np.amin(y), 1)
+    #xmax = round(np.amax(x), 1)
+    #ymax = round(np.amax(y), 1)
     #print("The max and mins are ", xmin, xmax, ymin, ymax)
-    x_m, y_m = createCartisianGrids(xmax, ymax, xmin, ymin)
+    cellSizes = np.array([0.25, 0.5, 0.75])#, 0.2, 0.25, 0.3])
+    x_m, y_m = createCartisianGrids(xmax, ymax, xmin, ymin, 0.25)
     x_mrow = x_m[0]
     y_mcol = y_m[:, 0]
-    #print("The x_m and y_m for the grid are", x_mrow, y_mcol)
-    for i in range(len(x_mrow) - 1):
+    print(f"The lengths of x and y are {len(x_mrow)} and {len(y_mcol)}")
+    for i in range(1, len(cellSizes)):
+        print(f"The cellSize array {i}")
+        length1 = 0
+        length2 = 0
+        print(f"Computing for cell size of {i + 1}")
+        while length1 + i < len(x_mrow):
+            length2 = 0
+            #print(f"X while loop {length1}")
+            while length2  + i < len(y_mcol):
+                covMat, xCell, yCell, count, cellPoints = individualCellParameters(points, weight,
+                                                                                   x_mrow[length1], y_mcol[length2],
+                                                                                   x_mrow[length1 + i], y_mcol[length2 + i])
+                #print(f"Y while loop {length2}")
+                #print(f"The cell parameters for the cell {x_mrow[length1]}, {y_mcol[length2]} and {x_mrow[length1 + i]}, {y_mcol[length2 + i]}")
+                if count != None and count >= 2:
+                    print("The weight is : ", weight)
+                    mean = computeMean(cellPoints, weight)
+                    dim = 2
+                    #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)  # This function can also be used for usage in interpolation we need to have the pdfValues[0]
+                    #pdfValues = pdfValues[0] / sum(pdfValues[0])
+                    #print("The normalized pdf values computed by other function is : ", pdfValues)
+                    gmm.fit(cellPoints)
+                    x = cellPoints[:, 0]
+                    y = cellPoints[:, 1]
+                    x_p, y_p = np.meshgrid(x, y)
+                    x_matrix, y_matrix = np.meshgrid(xCell, yCell)
+                    XY = np.array([x_matrix.ravel(), y_matrix.ravel()]).T
+                    xi = x_matrix[0]
+                    yi = y_matrix[:, 0]
+                    Z = gmm.score_samples(XY)
+                    print("The mean from gaussian mixture model are : ", gmm.means_)
+                    print("The covariances from the gaussian mixture model is : ", gmm.covariances_)
+                    print("My computed mean is : ", mean)
+                    print("My covariance matrix is : ", covMat)
+                    levels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+                    #print("The maximum value of Z before reshaping is ", max(Z))
+                    Z = Z.reshape((50, 50))
+                    #print(Z)
+                    #print(Z.shape)
+                    plt.contour(x_matrix, y_matrix, Z, levels=levels, cmap=cm.binary)
+                    #pdfValues = gauss(x, y, covMat, mean)
+                    # print("The different cell points are ", cellPoints)
+                    # pdfValues = multivariateGaussian(cellPoints, 2, covMat, mean)
+                    #print("The pdfValues by gauss function is  ", pdfValues)
+                    #zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
+                    #print("The zi's are ", zi)
+                    #plt.contourf(xCell, yCell, zi, cmap=cm.binary)
+                length2 += i
+            length1 += i
+    """for i in range(len(x_mrow) - 1):
         for j in range(len(y_mcol) - 1):
             covMat, xCell, yCell, count, cellPoints = individualCellParameters(points, weight, x_mrow[i], y_mcol[j], x_mrow[i + 1], y_mcol[j + 1])
-            if count!= None and count >= 3:
+            if count!= None and count >= 2:
                 mean = computeMean(cellPoints, weight)
                 dim = 2
                 #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)  # This function can also be used for usage in interpolation we need to have the pdfValues[0]
@@ -282,20 +373,12 @@ def ndtCartesian(points, weight):
                 xi = x_matrix[0]
                 yi = y_matrix[:, 0]
                 pdfValues = gauss(x, y, covMat, mean)
+                #print("The different cell points are ", cellPoints)
                 #pdfValues = multivariateGaussian(cellPoints, 2, covMat, mean)
-                print("The pdfValues are ", pdfValues)
+                #print("The pdfValues are ", pdfValues)
                 zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
                 #print("The zi's are ", zi)
-                plt.contourf(xCell, yCell, zi, cmap=cm.binary)
-                #print("The meshgrid points are ", x_p, y_p)
-                #print("The x_m, y_m are", x_m, y_m)
-                plt.plot(x, y, 'o', markersize=10, c='red')
-                plt.grid(color='black', linestyle='--',linewidth=0.5)  # visible=true, axis='both', xdata=xi, ydata=yi, markeredgecolor='r')
-                plt.xticks(x_mrow)
-                plt.yticks(y_mcol)
-    for i in range(len(x_m)):
-        for j in range(len(y_m)):
-            plt.plot(x_m[i], y_m[j], 'o', markersize=5, c='magenta')
+                plt.contourf(xCell, yCell, zi, cmap=cm.binary)"""
 
 def ndtPolar(points, weight):
     range, azimuth = (points[:, 0], points[:, 1])
@@ -327,27 +410,8 @@ def ndtPolar(points, weight):
                 ax.plot(points[:, 1], points[:, 0], 'o', markersize=10)
                 plt.contourf(rCell, aCell, zi, cmap=cm.Greys_r)
 
-if __name__ == '__main__':
-    """
-    The main function for testing the values..
-    """
-    #points = np.array([[0.4, 0.53], [0.8, 1.05], [0.5, 1.2], [1.0, 2.0], [0.1, 0.2], [0.2, 0.2], [0.15, 0.15], [0.115, 0.1145]])
-    objects = {}
-    """points = np.array([[0.1, 0.9], [0.5, 0.5], [0.75, 0.9], [0.8, 0.2], [2.0, 0.5], [2.5, 0.8], [2.9, 0.9],
-                       [2.1, 2.4], [2.2, 2.5], [2.5, 2.2], [2.8, 2.8], [2.4, 2.4], [4.1, 4.1], [4.2, 4.2],
-                       [4.3, 4.3], [4.4, 4.4], [4.6, 4.9]])
-    print("The trial points are ", points)"""
-    #weight = np.ones([len(points)])
-    #print("The weight matrix is ", weight)
-    #plt.rcParams['figure.facecolor'] = 'black'
-    #ndtCartesian(points, weight)
-    #fig = plt.figure()
-    #fig.patch.set_facecolor('black')
-    #ndtCartesian(points, radius)
-    #ax = plt.axes()
-    #ax.set_facecolor('black')
-    #plt.fill('black')
 
+def dataConcatenation():
     count = 0
     validCount = 0
     x = np.array([])
@@ -356,30 +420,51 @@ if __name__ == '__main__':
     rangeVal = np.array([])
     azimuthVal = np.array([])
     elevationVal = np.array([])
-    configFile = r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg'
-    configPorts = ['COM11', 'COM13']
-    #rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
-    sleep(3.0)
-    while validCount <= 5:
-        while count <= 20:
+    while validCount <= 2:
+        while count <= 3:
             objects = dataCollection.serialData()
             if objects:
+                points = np.array([])
                 for object in objects:
-                    if len(object["x"]) > 0:
-                        x = np.append(x, object["x"])
-                        y = np.append(y, object["y"])
-                        z = np.append(z, object["z"])
-                        rangeVal = np.append(rangeVal, object["range"])
-                        azimuthVal = np.append(azimuthVal, object["azimuth"])
-                        elevationVal = np.append(elevationVal, object["elevation"])
+                    if object:
+                        points = np.column_stack((object[0]["x"], object[0]["y"], object[0]["z"]))
+                        #print("The points before transformation are : ", points)
+                        transformedX, transformedY = transformations.transform(points, object[1])
+                        x = np.append(x, transformedX)
+                        y = np.append(y, transformedY)
                         count += 1
-                pointsXY = np.column_stack([x, y])
+                #pointsXY = np.column_stack([x, y])
                 #print("The points in XY coordinate system is ", pointsXY)
-                pointsRA = np.column_stack([rangeVal, azimuthVal])
+                #pointsRA = np.column_stack([rangeVal, azimuthVal])
                 validCount += 1
-    radius = 4.0
-    weight = np.ones([len(pointsXY)])
+    #print("The column stacked set of points are ", np.column_stack([x, y]))
+    pointsXY = np.column_stack([x, y])
+    #print("The points in data concatenation function is ", pointsXY)
+    pointsXY = list(pointsXY) ## converitng into list for checking the duplicate removal algorithm
+    return pointsXY
+
+if __name__ == '__main__':
+    """
+    The main function for testing the values..
+    """
+    configFile = r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_16T21_57_41_913_exported.cfg'
+    configPorts = ['COM11', 'COM13']
+    #rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
+    #sleep(5.0)
+    #pointsXY = dataConcatenation()    ## should be data concatenation and transform next to next..
+
+
+
+    #print("The final set of points are ", pointsXY)
+    #radius = 4.0
     # print("The weight matrix is ", weight)
-    print("The final set of points before computation is : ", pointsXY)
+    #print("The final set of points before computation is : ", pointsXY)
+    #ndtCartesian(pointsXY, weight)
+    #pointsXY, weights = identicalPointsRemoval(pointsXY)
+    pointsXY = np.array([[0.559, 1.088], [0.308, 1.247], [0.494, 1.165], [-1.022, 2.12],  [0.564, 1.13],
+                         [0.412, 1.143], [0.589, 1.059], [0.432, 1.044], [0.389,  0.92]])
+    print("The points are ", pointsXY)
+    weight = np.ones([len(pointsXY)])
+    plt.plot(pointsXY[:, 0], pointsXY[:, 1], 'o', c='red')
     ndtCartesian(pointsXY, weight)
     plt.show()

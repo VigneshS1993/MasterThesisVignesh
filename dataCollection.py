@@ -66,44 +66,11 @@ def serialData():
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg']
-    """try:
-        while True:
-            q1 = mp.Queue()
-            q2 = mp.Queue()
-            p1 = mp.Process(target=readData, args=('COM9',q1))
-            p2 = mp.Process(target=readData, args=('COM6',q2))
-            p1.start()
-            p2.start()
-            p1.join()
-            p2.join()
-            serialData = []
-            ## Not able to achieve the q.empty logic for getting all the values from the queue
-            serialData.append(q1.get())
-            serialData.append(q2.get())
-            print("The appended serial data is ", serialData)
+    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_14T16_11_26_053.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_14T16_11_26_053.cfg']
 
-    except KeyboardInterrupt:
-        exit()"""
-    """try:
-        while True:
-            start = time.perf_counter()
-            q1 = mp.Queue()
-            q2 = mp.Queue()
-            sensorData = []
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                results = [executor.submit(readSerialData, port) for port in dataPorts]
-                for f in concurrent.futures.as_completed(results):
-                    if f.result() != None:
-                        sensorData.append(f.result())
-            if sensorData:
-                print(f"The sensor data is {sensorData}")
-            stop = time.perf_counter()
-            print("The time taken to gather data is ", (stop-start))
-    except KeyboardInterrupt:
-        exit()"""
     count = 0
     try:
-        #print("Inside hte try block..")
+        #print("Inside the try block..")
         start = time.perf_counter()
         numDetectedObj = 0
         dataFrame, byteCounts = readDataSerially(dataPorts)
@@ -116,11 +83,13 @@ def serialData():
                     configParameters = rawDataSynthesisFINAL.parseConfigFile(configFiles[i])
                     detObj, dataOK = rawDataSynthesisFINAL.readAndParseData(dataFrame[i], configParameters)
                     if dataOK:
-                        print("The port number : ", i+1)
+                        portNumber = i + 1
+                        #print("The port number : ", portNumber)
                         count += 1
-                        print("The detected objects are ", detObj)
-                        print("The count of the run is : ", count)
-                        objects.append(detObj)
+                        #print("The detected objects are ", detObj)
+                        #print("The count of the run is : ", count)
+                        objectsTuple = (detObj, portNumber)
+                        objects.append(objectsTuple)
         stop = time.perf_counter()
         #print("Time taken for the run is ", (stop - start))
         #print("The total number of detected objects are ", numDetectedObj)
