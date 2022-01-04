@@ -1,5 +1,12 @@
 import numpy as np
 
+def transform2Odom(cellPoints, OdomdataCurrrent, OdomdataPrevious):
+    position = np.array([OdomData.pose])
+    r1 = np.array([[np.cos(Odomdata.rot*np.pi/180), -np.sin(Odomdata.rot*np.pi/180), 0], [np.sin(Odomdata.rot*np.pi/180), np.cos(Odomdata.rot*np.pi/180), 0], [0, 0, 1]])
+    translation = OdomdataCurrent.pose - OdomdataPrevious.pose
+    poseGuess = np.dot(r1, cellPoints.T) + translation
+    return poseGuess
+
 def transform(cellPoints, port):
     #print(cellPoints1, cellPoints2)
     l1 = np.array([0.5, 0.5])

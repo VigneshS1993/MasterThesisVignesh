@@ -55,7 +55,7 @@ def serialData():
     if platform == 'win32':
         #dataPorts = ['COM12', 'COM10']
         dataPorts = ['COM10', 'COM12']
-        #dataPorts = ['COM12']
+        #dataPorts = ['COM14']
         configPorts = ['COM11', 'COM13']
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
@@ -80,13 +80,14 @@ def serialData():
             #print("The fused data is ", dataFrame)
             for i in range(len(dataFrame)):
                 if len(dataFrame[i]) > 0:
+                    #print("Inside the serial data function..")
                     configParameters = rawDataSynthesisFINAL.parseConfigFile(configFiles[i])
                     detObj, dataOK = rawDataSynthesisFINAL.readAndParseData(dataFrame[i], configParameters)
                     if dataOK:
                         portNumber = i + 1
                         #print("The port number : ", portNumber)
                         count += 1
-                        #print("The detected objects are ", detObj)
+                        print("The detected objects are ", detObj)
                         #print("The count of the run is : ", count)
                         objectsTuple = (detObj, portNumber)
                         objects.append(objectsTuple)

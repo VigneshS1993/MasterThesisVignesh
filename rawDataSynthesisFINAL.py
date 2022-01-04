@@ -22,8 +22,9 @@ def sensorConfiguration(fileName, configPorts):
                     time.sleep(0.05)
                     #print(f"{command} successfully written into the sensor..")"""
 
-            comands = [line.rstrip('\r\n') for line in open(fileName)]
-            for command in comands:
+            commands = [line.rstrip('\r\n') for line in open(fileName)]
+            print("The commands are ", commands)
+            for command in commands:
                 confPort.write((command + '\n').encode())
                 time.sleep(0.01)
                 #confPort.write(('sensorStop\n').encode())      ## Need to send this to ensure the sensor starts sending the data.."""
@@ -93,6 +94,12 @@ def powerOf2(number):
     else:
         return False
 
+def multipleof32(number):
+    if number % 32 == 0:
+        return True
+    else:
+        return False
+
 def readAndParseData(bufferData, configParameters):
     MMDEMO_UART_MSG_DETECTED_POINTS = 1
     MMDEMO_UART_MSG_SIDE_INFO = 7
@@ -106,139 +113,164 @@ def readAndParseData(bufferData, configParameters):
     detObj = {"noObjects": numDetectedObj, "x": [], "y": [], "z": [], "range": [], "azimuth": [], "elevation": [], "velocity" : [], "snr": [], "noise": []} #
     byteBuffer = np.frombuffer(bufferData, dtype = 'uint8')
     magicWord = byteBuffer[0:8]
-    if powerOf2(len(byteBuffer)) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):    ## Experimental and a multiple of 2 for the length in bytes
+    if multipleof32(len(byteBuffer)) and np.all(magicWord == [2, 1, 4, 3, 6, 5, 8, 7]):    ## Experimental and a multiple of 2 for the length in bytes
         try:
             #print("The total length of the buffer is ", len(byteBuffer))
             idX = 0
+            """magicWord, version, totalPacketLen, platform, frameNumber, timeCpuCycles, numDetectedObj, numTLVs = struct.unpack('Q7I', byteBuffer[idX:idX+36])
+            print("The magic number is ", magicWord)
+            print("The version is ", version)
+            print("The total packet length is ",totalPacketLen)
+            print("The platform is ", platform)
+            print("The frame Number is ",frameNumber)
+            print("The time cpu cyles is ", timeCpuCycles)
+            print("The number of detected objects is ", numDetectedObj)
+            print("The number of TLVs is ", numTLVs)"""
             magicNumber = byteBuffer[0:8]
+            print("The magic number is ", magicNumber)
             idX += 8
             version = format(np.matmul(byteBuffer[idX:idX+4], word), 'x')
+            print("The version is ", version)
             idX += 4
-            totalPacketLen = np.matmul(byteBuffer[idX:idX + 4], word)
+            #totalPacketLen = np.matmul(byteBuffer[idX:idX + 4], word)
+            print("The total packet length is ", totalPacketLen)
             idX += 4
             platform = format(np.matmul(byteBuffer[idX:idX + 4], word), 'x')
+            #platform = studt.unpack('Q7I', byteBuffer[idX:idX+4])
+            print("The platform is ", platform)
             idX += 4
             frameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
+            #frameNumber = struct.unpack('Q7I', byteBuffer[idX:idX+4])
+            print("The frame Number is ",frameNumber)
             idX += 4
             timeCpuCycles = np.matmul(byteBuffer[idX:idX + 4], word)
+            #timeCpuCyles = struct.unpack('Q7I', byteBuffer[idX:idX+4])
+            print("The time cpu cyles is ", timeCpuCyles)
             idX += 4
             numDetectedObj = np.matmul(byteBuffer[idX:idX + 4], word)
+            #numDetectedObj = struct.unpack('Q7I', byteBuffer[idX:idX+4])
+            print("The number of detected objects are ", numDetectedObj)
             idX += 4
             numTLVs = np.matmul(byteBuffer[idX:idX + 4], word)
+            #numTLVs = struct.unpack('Q7I', bateBuffer[idX:idX+4])
+            print("The number of tlv are ",numTLVs)
             idX += 4
+            #idX += 36
             subFrameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
+            print("The subframe number is ",subFrameNumber)
             idX += 4
             if numDetectedObj > 0:
                 for tlv in range(numTLVs):
-                    if len(byteBuffer[idX:idX+4]) > 0:
-                        tlv_type = np.matmul(byteBuffer[idX:idX+4], word)
-                        idX += 4
-                        tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
-                        idX += 4
-                        if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
-                            x = []
-                            y = []
-                            z = []
-                            computedAzimuth = []
-                            computedRange = []
-                            computedElevation = []
-                            velocity = []
-                            snr = []
-                            noise = []
-                            for objectNum in range(numDetectedObj):
-                                if len(byteBuffer[idX:idX+4]) < 4:
-                                    break
-                                #print("Before unpacking x")
-                                #print(byteBuffer[idX:idX + 4])
-                                xi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
-                                #xi = round(xi, 4)
-                                #print("Unpacked x and the value is ", xi)
-                                idX += 4
-                                x.append(xi)
-                                #print(byteBuffer[idX:idX + 4])
-                                if len(byteBuffer[idX:idX+4]) < 4:
-                                    x.pop()
-                                    break
-                                # convert byte4 to byte7 to float y value
-                                yi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
-                                #yi = round(yi, 4)
-                                #print("Unpacked y")
-                                idX += 4
-                                y.append(yi)
-                                #print(byteBuffer[idX:idX + 4])
-                                if len(byteBuffer[idX:idX+4]) < 4:
-                                    x.pop()
-                                    y.pop()
-                                    break
-                                # convert byte8 to byte11 to float z value
-                                zi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
-                                #zi = round(zi, 4)
-                                #print("Unpacked z")
-                                idX += 4
-                                z.append(zi)
-                                #print(byteBuffer[idX:idX + 4])
-                                if len(byteBuffer[idX:idX+4]) < 4:
-                                    x.pop()
-                                    y.pop()
-                                    z.pop()
-                                    break
-                                # convert byte12 to byte15 to float v value
-                                vi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
-                                #vi = round(vi, 4)
-                                #print("Unpacked velocity")
-                                idX += 4
-                                velocity.append(vi)
-                                tempR = mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))
-                                #tempR = round(tempR, 4)
-                                #tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
-                                computedRange.append(tempR)
-                                if yi == 0.0:
-                                    if xi >= 0.0:
-                                        tempCA = 90.00
-                                        #tempCA = round(tempCA, 4)
-                                        computedAzimuth.append(tempCA)
-                                    else:
-                                        tempCA = -90.00
-                                        computedAzimuth.append(tempCA)
-                                else:
-                                    #tempCA = mt.atan(tempx[0]/tempy[0])*180/np.pi
-                                    tempCA = mt.atan(xi / yi) * 180 / np.pi
+                    #if len(byteBuffer[idX:idX+4]) > 0:
+                    tlv_type = np.matmul(byteBuffer[idX:idX+4], word)
+                    idX += 4
+                    tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
+                    idX += 4
+                    print("The length of the tlv is ", tlv_length)
+                    if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
+                        x = []
+                        y = []
+                        z = []
+                        computedAzimuth = []
+                        computedRange = []
+                        computedElevation = []
+                        velocity = []
+                        snr = []
+                        noise = []
+                        for objectNum in range(numDetectedObj):
+                            #if len(byteBuffer[idX:idX+4]) < 4:
+                            #    break
+                            #print("Before unpacking x")
+                            print("The length of the remaining bytebuffer is ", len(byteBuffer[idX:]))
+                            xi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                            #xi = round(xi, 4)
+                            #print("Unpacked x and the value is ", xi)
+                            idX += 4
+                            x.append(xi)
+                            #print(byteBuffer[idX:idX + 4])
+                            #if len(byteBuffer[idX:idX+4]) < 4:
+                            #    x.pop()
+                            #    break
+                            # convert byte4 to byte7 to float y value
+                            yi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                            #yi = round(yi, 4)
+                            #print("Unpacked y")
+                            idX += 4
+                            y.append(yi)
+                            #print(byteBuffer[idX:idX + 4])
+                            #if len(byteBuffer[idX:idX+4]) < 4:
+                            #    x.pop()
+                            #    y.pop()
+                            #    break
+                            # convert byte8 to byte11 to float z value
+                            zi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                            #zi = round(zi, 4)
+                            #print("Unpacked z")
+                            idX += 4
+                            z.append(zi)
+                            #print(byteBuffer[idX:idX + 4])
+                            #if len(byteBuffer[idX:idX+4]) < 4:
+                            #    x.pop()
+                            #    y.pop()
+                            #    z.pop()
+                            #    break
+                            # convert byte12 to byte15 to float v value
+                            vi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                            #vi = round(vi, 4)
+                            #print("Unpacked velocity")
+                            idX += 4
+                            velocity.append(vi)
+                            tempR = mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))
+                            #tempR = round(tempR, 4)
+                            #tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
+                            computedRange.append(tempR)
+                            if yi == 0.0:
+                                if xi >= 0.0:
+                                    tempCA = 90.00
                                     #tempCA = round(tempCA, 4)
                                     computedAzimuth.append(tempCA)
-                                if xi == 0 and yi == 0:
-                                    if zi >= 0.0:
-                                        tempCE = 90.00
-                                        computedElevation.append(tempCE)
-                                    else:
-                                        tempCE = -90.00
-                                        computedElevation.append(tempCE)
                                 else:
-                                    #tempCE = mt.atan(tempz[0]/mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0])))*180/np.pi
-                                    tempCE = mt.atan(zi / mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))) * 180 / np.pi
-                                    #tempCE = round(tempCE, 4)
+                                    tempCA = -90.00
+                                    computedAzimuth.append(tempCA)
+                            else:
+                                #tempCA = mt.atan(tempx[0]/tempy[0])*180/np.pi
+                                tempCA = mt.atan(xi / yi) * 180 / np.pi
+                                #tempCA = round(tempCA, 4)
+                                computedAzimuth.append(tempCA)
+                            if xi == 0 and yi == 0:
+                                if zi >= 0.0:
+                                    tempCE = 90.00
+                                    computedElevation.append(tempCE)
+                                else:
+                                    tempCE = -90.00
                                     computedElevation.append(tempCE)
                             else:
-                                idX += tlv_length
-                        if tlv_type == 7:
-                            for obj in range(numDetectedObj):
-                                tempSNR = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
-                                idx += 2
-                                snr.append(tempSNR)
-                                tempnoise = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
-                                idx += 2
-                                noise.append(tempnoise)
-
+                                #tempCE = mt.atan(tempz[0]/mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0])))*180/np.pi
+                                tempCE = mt.atan(zi / mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))) * 180 / np.pi
+                                #tempCE = round(tempCE, 4)
+                                computedElevation.append(tempCE)
                         else:
-                            for obj in range(numDetectedObj):
-                                snr.append(0)
-                                noise.append(0)
+                            idX += tlv_length
+                    if tlv_type == 7:
+                        for obj in range(numDetectedObj):
+                            tempSNR = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
+                            idx += 2
+                            snr.append(tempSNR)
+                            tempnoise = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
+                            idx += 2
+                            noise.append(tempnoise)
+
+                    else:
+                        for obj in range(numDetectedObj - 1):
+                            snr.append(0)
+                            noise.append(0)
 
             detObj = {"noObjects": numDetectedObj, "x": x, "y": y, "z": z, "range": computedRange,
                       "azimuth": computedAzimuth, "elevation": computedElevation, "velocity": velocity, "snr": snr, "noise": noise} #
             dataOK = 1
 
         except Exception as e:
-            print("Error while reading/parsing incoming radar data stream! Error:")
+            print("Error during the run!! Error:")
             print(e)
             print("ByteBuffer:")
             print(byteBuffer)

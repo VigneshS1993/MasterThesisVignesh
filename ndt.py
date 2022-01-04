@@ -12,6 +12,7 @@ import dataCollection
 import rawDataSynthesisFINAL
 from time import sleep
 from sklearn.mixture import GaussianMixture
+from otherLibraries import errorEllipse
 
 import transformations
 
@@ -90,6 +91,20 @@ def polar2Cartesian(points):
     y = np.array(y)
     return x, y
 
+def check4Eigen(covMat):
+    """
+    Function to check if the largest eigen value is atleast 0.001 times the smallest, if not make them like that..
+    :param covMat: the covariance matrix to change
+    :return: the transformed covMat
+    """
+    eigenValues, eigenVectors = np.linalg.eigh(covMat)
+    u, sigma, ut = np.linalg(covMat)
+    if sigma[0][0] / sigma[1][1] < 0.001:
+        sigma[0][0] = sigma[1][1] * 0.001
+    covmat = np.dot(u, np.dot(sigma, ut))
+
+    return covmat
+
 def computeCovariance(points, weight):
     """
     Computes the covariance matrix for a set of points considered.
@@ -107,6 +122,7 @@ def computeCovariance(points, weight):
         #print("The normalized point is ", pointNorm)
         covMat += np.matmul(pointTranspose, pointNorm)
     covMat /= len(points)
+    covMat = check4Eigen(covMat)
     return covMat
 
 def scaleCovMat(covMat, factor):
@@ -314,7 +330,7 @@ def ndtCartesian(points, weight):
         print(f"The cellSize array {i}")
         length1 = 0
         length2 = 0
-        print(f"Computing for cell size of {i + 1}")
+        #print(f"Computing for cell size of {i + 1}")
         while length1 + i < len(x_mrow):
             length2 = 0
             #print(f"X while loop {length1}")
@@ -331,7 +347,12 @@ def ndtCartesian(points, weight):
                     #pdfValues = probabDenFun(mean, covMat, cellPoints, dim)  # This function can also be used for usage in interpolation we need to have the pdfValues[0]
                     #pdfValues = pdfValues[0] / sum(pdfValues[0])
                     #print("The normalized pdf values computed by other function is : ", pdfValues)
-                    gmm.fit(cellPoints)
+                    ellipse = errorEllipse(mean, covMat, sigma=3)
+                    ax = plt.gca()
+                    ax.add_patch(ellipse)
+                    plt.plot()
+                    ## Using gmm model
+                    """gmm.fit(cellPoints)
                     x = cellPoints[:, 0]
                     y = cellPoints[:, 1]
                     x_p, y_p = np.meshgrid(x, y)
@@ -340,16 +361,19 @@ def ndtCartesian(points, weight):
                     xi = x_matrix[0]
                     yi = y_matrix[:, 0]
                     Z = gmm.score_samples(XY)
-                    print("The mean from gaussian mixture model are : ", gmm.means_)
-                    print("The covariances from the gaussian mixture model is : ", gmm.covariances_)
-                    print("My computed mean is : ", mean)
-                    print("My covariance matrix is : ", covMat)
+                    #print("The mean from gaussian mixture model are : ", gmm.means_)
+                    #print("The covariances from the gaussian mixture model is : ", gmm.covariances_)
+                    #print("My computed mean is : ", mean)
+                    #print("My covariance matrix is : ", covMat)
                     levels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                     #print("The maximum value of Z before reshaping is ", max(Z))
-                    Z = Z.reshape((50, 50))
+                    #Z = Z.reshape((50, 50))
                     #print(Z)
                     #print(Z.shape)
-                    plt.contour(x_matrix, y_matrix, Z, levels=levels, cmap=cm.binary)
+                    #plt.contour(x_matrix, y_matrix, Z, levels=levels, cmap=cm.binary)"""
+
+                    #Using gmm model is done
+
                     #pdfValues = gauss(x, y, covMat, mean)
                     # print("The different cell points are ", cellPoints)
                     # pdfValues = multivariateGaussian(cellPoints, 2, covMat, mean)
@@ -357,6 +381,9 @@ def ndtCartesian(points, weight):
                     #zi = griddata((x, y), pdfValues, (xi[None, :], yi[:, None]), method='cubic')
                     #print("The zi's are ", zi)
                     #plt.contourf(xCell, yCell, zi, cmap=cm.binary)
+
+
+
                 length2 += i
             length1 += i
     """for i in range(len(x_mrow) - 1):
@@ -423,6 +450,7 @@ def dataConcatenation():
     while validCount <= 2:
         while count <= 3:
             objects = dataCollection.serialData()
+            #print("We are in ndt data concatenation file..")
             if objects:
                 points = np.array([])
                 for object in objects:
@@ -433,8 +461,8 @@ def dataConcatenation():
                         x = np.append(x, transformedX)
                         y = np.append(y, transformedY)
                         count += 1
-                #pointsXY = np.column_stack([x, y])
-                #print("The points in XY coordinate system is ", pointsXY)
+                pointsXY = np.column_stack([x, y])
+                print("The points in XY coordinate system is ", pointsXY)
                 #pointsRA = np.column_stack([rangeVal, azimuthVal])
                 validCount += 1
     #print("The column stacked set of points are ", np.column_stack([x, y]))
