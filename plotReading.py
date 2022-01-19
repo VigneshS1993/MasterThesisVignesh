@@ -25,17 +25,18 @@ if __name__ == '__main__':
     configPorts = ['COM11', 'COM13']
     #configPorts = ['COM9']
     count = 0
-    rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
-    print("Configuration done..")
+    #rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
+    #print("Configuration done..")
     x_min = -2.0
     x_max = 2.0
     y_min = -0.5
     y_max = 3.5
-    while count < 2:
+    while True:
         pointsXY = ndt.dataConcatenation()
+        #print("The points are in the main function ", pointsXY)
         pointsXY, weights = ndt.identicalPointsRemoval(pointsXY)
         pointsXY = np.array(pointsXY)
-        #print("The points are in the main function ", pointsXY)
+        #print("The points are in the main function as a numpy array : ", pointsXY)
         max1 = round(max(pointsXY[:, 0]), 2)
         max2 = round(max(pointsXY[:, 1]), 2)
         min1 = round(min(pointsXY[:, 0]), 2)

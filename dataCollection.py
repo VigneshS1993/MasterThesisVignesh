@@ -36,18 +36,31 @@ def readSerialData(port):
         if len(sData) == 0:
             sData = None
     serialPort.close()
-    return sData
+
+    if port == 'COM10':
+        portCount = 1
+
+    if port == 'COM12':
+        portCount = 2
+
+    return sData, portCount
 
 def readDataSerially(ports):
     fused = []
-    byteCounts = []
+    count = []
+    portCount = []
     for port in ports:
         with Se(port, baudrate=921600) as serialPort:
             byteCount = serialPort.inWaiting()
             sData = serialPort.read(byteCount)
             fused.append(sData)
-            byteCounts.append(byteCount)
-    return fused, byteCounts
+            if port == 'COM10':
+                count = 1
+            if port == 'COM11':
+                count = 2
+            portCount.append(count)
+            #byteCounts.append(byteCount)
+    return fused, portCount
 #    with serial.Serial(port, 115200, timeout=3) as ser:
 
 #if  __name__ == '__main__':
@@ -60,20 +73,14 @@ def serialData():
     elif platform == 'linux':
         dataPorts = ['/usb/..', '/usb/..']
         configPorts = ['/usb/..', '/usb/..']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T11_52_53_572.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_01T16_44_38_461.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_14_13_130.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_31_57_911.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_03T20_45_31_915.cfg']
-    configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_06T15_54_48_642.cfg']
     configFiles = [r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_14T16_11_26_053.cfg', r'D:\Master Thesis\Config_files_for_testing\Optimal\xwr68xx_AOP_profile_2021_12_14T16_11_26_053.cfg']
-
+    portCount = 0
     count = 0
     try:
         #print("Inside the try block..")
         start = time.perf_counter()
         numDetectedObj = 0
-        dataFrame, byteCounts = readDataSerially(dataPorts)
+        dataFrame, portCount = readDataSerially(dataPorts)
         #print("The dataFrame is ", dataFrame)
         objects = []
         if dataFrame:
@@ -87,14 +94,11 @@ def serialData():
                         portNumber = i + 1
                         #print("The port number : ", portNumber)
                         count += 1
-                        print("The detected objects are ", detObj)
+                        #print("The detected objects are ", detObj)
                         #print("The count of the run is : ", count)
                         objectsTuple = (detObj, portNumber)
                         objects.append(objectsTuple)
         stop = time.perf_counter()
-        #print("Time taken for the run is ", (stop - start))
-        #print("The total number of detected objects are ", numDetectedObj)
-        #print(f"The dataFrame and byteCounts are  {dataFrame}, {byteCounts}")
         return objects
     except KeyboardInterrupt:
         exit()

@@ -23,7 +23,7 @@ def sensorConfiguration(fileName, configPorts):
                     #print(f"{command} successfully written into the sensor..")"""
 
             commands = [line.rstrip('\r\n') for line in open(fileName)]
-            print("The commands are ", commands)
+            #print("The commands are ", commands)
             for command in commands:
                 confPort.write((command + '\n').encode())
                 time.sleep(0.01)
@@ -110,6 +110,8 @@ def readAndParseData(bufferData, configParameters):
     byteBuffer = 0
     frameNumber = 0
     numDetectedObj = 0
+    xy = []
+    #detObj = {"x": [], "y": []}
     detObj = {"noObjects": numDetectedObj, "x": [], "y": [], "z": [], "range": [], "azimuth": [], "elevation": [], "velocity" : [], "snr": [], "noise": []} #
     byteBuffer = np.frombuffer(bufferData, dtype = 'uint8')
     magicWord = byteBuffer[0:8]
@@ -132,7 +134,7 @@ def readAndParseData(bufferData, configParameters):
             version = format(np.matmul(byteBuffer[idX:idX+4], word), 'x')
             print("The version is ", version)
             idX += 4
-            #totalPacketLen = np.matmul(byteBuffer[idX:idX + 4], word)
+            totalPacketLen = np.matmul(byteBuffer[idX:idX + 4], word)
             print("The total packet length is ", totalPacketLen)
             idX += 4
             platform = format(np.matmul(byteBuffer[idX:idX + 4], word), 'x')
@@ -145,7 +147,7 @@ def readAndParseData(bufferData, configParameters):
             idX += 4
             timeCpuCycles = np.matmul(byteBuffer[idX:idX + 4], word)
             #timeCpuCyles = struct.unpack('Q7I', byteBuffer[idX:idX+4])
-            print("The time cpu cyles is ", timeCpuCyles)
+            print("The time cpu cyles is ", timeCpuCycles)
             idX += 4
             numDetectedObj = np.matmul(byteBuffer[idX:idX + 4], word)
             #numDetectedObj = struct.unpack('Q7I', byteBuffer[idX:idX+4])
@@ -161,13 +163,15 @@ def readAndParseData(bufferData, configParameters):
             idX += 4
             if numDetectedObj > 0:
                 for tlv in range(numTLVs):
-                    #if len(byteBuffer[idX:idX+4]) > 0:
-                    tlv_type = np.matmul(byteBuffer[idX:idX+4], word)
+                    #if len(byteBuffer[idX:]) >= 4:
+                    tlv_type = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
+                    print("The tlv types are ", tlv_type)
                     idX += 4
-                    tlv_length = np.matmul(byteBuffer[idX:idX+4], word)
+                    tlv_length = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                     idX += 4
-                    print("The length of the tlv is ", tlv_length)
+                    #print("The length of the tlv is ", tlv_length)
                     if tlv_type == MMDEMO_UART_MSG_DETECTED_POINTS:
+                        print("TLV type 1 is getting published..")
                         x = []
                         y = []
                         z = []
@@ -178,10 +182,10 @@ def readAndParseData(bufferData, configParameters):
                         snr = []
                         noise = []
                         for objectNum in range(numDetectedObj):
-                            #if len(byteBuffer[idX:idX+4]) < 4:
-                            #    break
+                            if len(byteBuffer[idX:]) < 16:
+                                break
                             #print("Before unpacking x")
-                            print("The length of the remaining bytebuffer is ", len(byteBuffer[idX:]))
+                            #print("The length of the remaining bytebuffer is ", len(byteBuffer[idX:]))
                             xi = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+4]), 'hex'))[0]
                             #xi = round(xi, 4)
                             #print("Unpacked x and the value is ", xi)
@@ -208,7 +212,7 @@ def readAndParseData(bufferData, configParameters):
                             #print("Unpacked z")
                             idX += 4
                             z.append(zi)
-                            #print(byteBuffer[idX:idX + 4])
+                            #print("The length of the remaining length of the buffer is ", len(byteBuffer[idX:]))
                             #if len(byteBuffer[idX:idX+4]) < 4:
                             #    x.pop()
                             #    y.pop()
@@ -220,6 +224,7 @@ def readAndParseData(bufferData, configParameters):
                             #print("Unpacked velocity")
                             idX += 4
                             velocity.append(vi)
+                            #print("The length of the remaining length of the buffer is ", len(byteBuffer[idX:]))
                             tempR = mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))
                             #tempR = round(tempR, 4)
                             #tempR = mt.sqrt((tempx[0] * tempx[0]) + (tempy[0] * tempy[0]) + (tempz[0] * tempz[0]))
@@ -249,25 +254,27 @@ def readAndParseData(bufferData, configParameters):
                                 tempCE = mt.atan(zi / mt.sqrt((xi * xi) + (yi * yi) + (zi * zi))) * 180 / np.pi
                                 #tempCE = round(tempCE, 4)
                                 computedElevation.append(tempCE)
-                        else:
-                            idX += tlv_length
-                    if tlv_type == 7:
-                        for obj in range(numDetectedObj):
-                            tempSNR = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
-                            idx += 2
-                            snr.append(tempSNR)
-                            tempnoise = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
-                            idx += 2
-                            noise.append(tempnoise)
-
+                    if tlv_type == MMDEMO_UART_MSG_SIDE_INFO:
+                        print("TLV type 7 is getting published..")
+                        snr = []
+                        noise = []
+                        for objectNum in range(numDetectedObj):
+                            s = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
+                            snr.append(s)
+                            idX += 2
+                            n = struct.unpack('<f', codecs.decode(binascii.hexlify(byteBuffer[idX:idX+2]), 'hex'))[0]
+                            noise.append(n)
+                            idX += 2
                     else:
-                        for obj in range(numDetectedObj - 1):
-                            snr.append(0)
-                            noise.append(0)
+                        idX += (tlv_length - 4)
 
+            xy = [[x[i], y[i]] for i in range(len(x))]
+            xy = np.array(xy)
             detObj = {"noObjects": numDetectedObj, "x": x, "y": y, "z": z, "range": computedRange,
                       "azimuth": computedAzimuth, "elevation": computedElevation, "velocity": velocity, "snr": snr, "noise": noise} #
-            dataOK = 1
+            #detObj = {"x": x, "y": y}
+            if numDetectedObj > 0:
+                dataOK = 1
 
         except Exception as e:
             print("Error during the run!! Error:")

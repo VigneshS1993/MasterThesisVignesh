@@ -34,13 +34,14 @@ import struct
 import math
 import binascii
 import codecs
+import numpy as np
 
 #definitions for pass/fail
 
 TC_PASS = 0
 TC_FAIL = 1
 
-def getUnit32(data):
+def getUint32(data):
     """! 
     This function converts 4 bytes of data into a 32-bit unsigned integer.
     @param data: 1-dimension byte data
@@ -52,7 +53,7 @@ def getUnit32(data):
     #    num = num + (int(data[i])*(2**i))
     return (data[0] + data[1]*256 + data[2]*65536 + data[3]*16777216)
 
-def getUnit16(data):
+def getUint16(data):
     """! 
     This function converts 2 bytes of data into a 16-bit unsigned integer.
     @param data: 1-dimension byte data
@@ -66,7 +67,7 @@ def getHex(data):
     @param data: 1-dimension byte data
     @return : 32 bit unsigned integer in hex
     """
-    return (binascii.hexify(data[::-1]))
+    return (binascii.hexlify(data[::-1]))
 
 def checkMagicPattern(data):
     """! 
@@ -80,7 +81,7 @@ def checkMagicPattern(data):
         found = 1
     return found
 
-def dataparser(data, readNumBytes):
+def parser_helper(data, readNumBytes):
     """! This function is called by parser_one_mmwave_demo_out_packet() function to read the input buffer, check the magic number, header location, length of the frame, number of detected objects and the number of TLV contained in the demo output packet.
     @param data: 1-dimension byte array holds the data read from the demo output.It is ignorant of the fact that data is coming from UART is coming from UART directly or file read
     @param readNumBytes: The number of bytes contained in this input byte array
@@ -90,13 +91,17 @@ def dataparser(data, readNumBytes):
     @return numTlv: the number of TLV contained in this mmw demo output packet
     @return subframeNumber: the subframe index(0, 1, 2 or 3) of the fram contained in this mmw demo output packet
     """
+    print("Data and the number of bytes are : ", data, readNumBytes)
     headerStartIndex = -1
+    word = [1, 2 ** 8, 2 ** 16, 2 ** 24]
     
     for index in range (readNumBytes):
+        print("Index is ", index)
         if checkMagicPattern(data[index:index+8:1]) == 1:
+            print("Magic sequence found !!..")
             headerStartIndex = index
             break
-        
+    print("The head start index is ", headerStartIndex)
     if headerStartIndex == -1: # does not find the magic number i.e output packet header 
         totalPacketNumBytes = -1
         numDetObj           = -1
@@ -107,7 +112,8 @@ def dataparser(data, readNumBytes):
         timeCpuCycles       = -1
     else: # find the magic number i.e output packet header 
         totalPacketNumBytes = getUint32(data[headerStartIndex+12:headerStartIndex+16:1])
-        platform            = getHex(data[headerStartIndex+16:headerStartIndex+20:1])
+        platform = format(np.matmul(data[headerStartIndex+16:headerStartIndex+20:1], word), 'x')
+        #platform            = getHex(data[headerStartIndex+16:headerStartIndex+20:1])
         frameNumber         = getUint32(data[headerStartIndex+20:headerStartIndex+24:1])
         timeCpuCycles       = getUint32(data[headerStartIndex+24:headerStartIndex+28:1])
         numDetObj           = getUint32(data[headerStartIndex+28:headerStartIndex+32:1])
@@ -124,6 +130,12 @@ def dataparser(data, readNumBytes):
     print("subFrameNumber      = %d" % (subFrameNumber))   
                               
     return (headerStartIndex, totalPacketNumBytes, numDetObj, numTlv, subFrameNumber)
+
+def multipleof32(number):
+    if number % 32 == 0:
+        return True
+    else:
+        return False
 
 def parser_one_mmw_demo_output_packet(data, readNumBytes):
     """!
@@ -152,7 +164,6 @@ def parser_one_mmw_demo_output_packet(data, readNumBytes):
     headerNumBytes = 40   
 
     PI = 3.14159265
-
     detectedX_array = []
     detectedY_array = []
     detectedZ_array = []
@@ -162,130 +173,129 @@ def parser_one_mmw_demo_output_packet(data, readNumBytes):
     detectedElevAngle_array = []
     detectedSNR_array = []
     detectedNoise_array = []
-
     result = TC_PASS
+    data = np.frombuffer(data, dtype='uint8')
 
     # call parser_helper() function to find the output packet header start location and packet size 
     (headerStartIndex, totalPacketNumBytes, numDetObj, numTlv, subFrameNumber) = parser_helper(data, readNumBytes)
-                         
-    if headerStartIndex == -1:
-        result = TC_FAIL
-        print("************ Frame Fail, cannot find the magic words *****************")
-    else:
-        nextHeaderStartIndex = headerStartIndex + totalPacketNumBytes 
-
-        if headerStartIndex + totalPacketNumBytes > readNumBytes:
+    print("Header start index in the parser function is ", headerStartIndex)
+    if multipleof32(readNumBytes):
+        if headerStartIndex == -1:
             result = TC_FAIL
-            print("********** Frame Fail, readNumBytes may not long enough ***********")
-        elif nextHeaderStartIndex + 8 < readNumBytes and checkMagicPattern(data[nextHeaderStartIndex:nextHeaderStartIndex+8:1]) == 0:
-            result = TC_FAIL
-            print("********** Frame Fail, incomplete packet **********") 
-        elif numDetObj <= 0:
-            result = TC_FAIL
-            print("************ Frame Fail, numDetObj = %d *****************" % (numDetObj))
-        elif subFrameNumber > 3:
-            result = TC_FAIL
-            print("************ Frame Fail, subFrameNumber = %d *****************" % (subFrameNumber))
-        else: 
-            # process the 1st TLV
-            tlvStart = headerStartIndex + headerNumBytes
-                                                    
-            tlvType    = getUint32(data[tlvStart+0:tlvStart+4:1])
-            tlvLen     = getUint32(data[tlvStart+4:tlvStart+8:1])       
-            offset = 8
-                    
-            print("The 1st TLV") 
-            print("    type %d" % (tlvType))
-            print("    len %d bytes" % (tlvLen))
-                                                    
-            # the 1st TLV must be type 1
-            if tlvType == 1 and tlvLen < totalPacketNumBytes:#MMWDEMO_UART_MSG_DETECTED_POINTS
-                         
-                # TLV type 1 contains x, y, z, v values of all detect objects. 
-                # each x, y, z, v are 32-bit float in IEEE 754 single-precision binary floating-point format, so every 16 bytes represent x, y, z, v values of one detect objects.    
-                
-                # for each detect objects, extract/convert float x, y, z, v values and calculate range profile and azimuth                           
-                for obj in range(numDetObj):
-                    # convert byte0 to byte3 to float x value
-                    x = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset:tlvStart + offset+4:1]),'hex'))[0]
+            print("************ Frame Fail, cannot find the magic words *****************")
+        else:
+            nextHeaderStartIndex = headerStartIndex + totalPacketNumBytes
 
-                    # convert byte4 to byte7 to float y value
-                    y = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+4:tlvStart + offset+8:1]),'hex'))[0]
-
-                    # convert byte8 to byte11 to float z value
-                    z = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+8:tlvStart + offset+12:1]),'hex'))[0]
-
-                    # convert byte12 to byte15 to float v value
-                    v = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+12:tlvStart + offset+16:1]),'hex'))[0]
-
-                    # calculate range profile from x, y, z
-                    compDetectedRange = math.sqrt((x * x)+(y * y)+(z * z))
-
-                    # calculate azimuth from x, y           
-                    if y == 0:
-                        if x >= 0:
-                            detectedAzimuth = 90
-                        else:
-                            detectedAzimuth = -90 
-                    else:
-                        detectedAzimuth = math.atan(x/y) * 180 / PI
-
-                    # calculate elevation angle from x, y, z
-                    if x == 0 and y == 0:
-                        if z >= 0:
-                            detectedElevAngle = 90
-                        else: 
-                            detectedElevAngle = -90
-                    else:
-                        detectedElevAngle = math.atan(z/math.sqrt((x * x)+(y * y))) * 180 / PI
-                            
-                    detectedX_array.append(x)
-                    detectedY_array.append(y)
-                    detectedZ_array.append(z)
-                    detectedV_array.append(v)
-                    detectedRange_array.append(compDetectedRange)
-                    detectedAzimuth_array.append(detectedAzimuth)
-                    detectedElevAngle_array.append(detectedElevAngle)
-                                                                
-                    offset = offset + 16
-                # end of for obj in range(numDetObj) for 1st TLV
-                                                            
-            # Process the 2nd TLV
-            tlvStart = tlvStart + 8 + tlvLen
-                                                    
-            tlvType    = getUint32(data[tlvStart+0:tlvStart+4:1])
-            tlvLen     = getUint32(data[tlvStart+4:tlvStart+8:1])      
-            offset = 8
-                    
-            print("The 2nd TLV") 
-            print("    type %d" % (tlvType))
-            print("    len %d bytes" % (tlvLen))
-                                                            
-            if tlvType == 7: 
-                
-                # TLV type 7 contains snr and noise of all detect objects.
-                # each snr and noise are 16-bit integer represented by 2 bytes, so every 4 bytes represent snr and noise of one detect objects.    
-            
-                # for each detect objects, extract snr and noise                                            
-                for obj in range(numDetObj):
-                    # byte0 and byte1 represent snr. convert 2 bytes to 16-bit integer
-                    snr   = getUint16(data[tlvStart + offset + 0:tlvStart + offset + 2:1])
-                    # byte2 and byte3 represent noise. convert 2 bytes to 16-bit integer 
-                    noise = getUint16(data[tlvStart + offset + 2:tlvStart + offset + 4:1])
-
-                    detectedSNR_array.append(snr)
-                    detectedNoise_array.append(noise)
-                                                                    
-                    offset = offset + 4
+            if headerStartIndex + totalPacketNumBytes > readNumBytes:
+                result = TC_FAIL
+                print("********** Frame Fail, readNumBytes may not long enough ***********")
+            elif nextHeaderStartIndex + 8 < readNumBytes and checkMagicPattern(data[nextHeaderStartIndex:nextHeaderStartIndex+8:1]) == 0:
+                result = TC_FAIL
+                print("********** Frame Fail, incomplete packet **********")
+            elif numDetObj <= 0:
+                result = TC_FAIL
+                print("************ Frame Fail, numDetObj = %d *****************" % (numDetObj))
+            elif subFrameNumber > 3:
+                result = TC_FAIL
+                print("************ Frame Fail, subFrameNumber = %d *****************" % (subFrameNumber))
             else:
-                for obj in range(numDetObj):
-                    detectedSNR_array.append(0)
-                    detectedNoise_array.append(0)
-            # end of if tlvType == 7
+                # process the 1st TLV
+                tlvStart = headerStartIndex + headerNumBytes
+                tlvType    = getUint32(data[tlvStart+0:tlvStart+4:1])
+                tlvLen     = getUint32(data[tlvStart+4:tlvStart+8:1])
+                offset = 8
+                print("The 1st TLV")
+                print("    type %d" % (tlvType))
+                print("    len %d bytes" % (tlvLen))
 
-            print("                  x(m)         y(m)         z(m)        v(m/s)    Com0range(m)  azimuth(deg)  elevAngle(deg)  snr(0.1dB)    noise(0.1dB)")
-            for obj in range(numDetObj):
-                print("    obj%3d: %12f %12f %12f %12f %12f %12f %12d %12d %12d" % (obj, detectedX_array[obj], detectedY_array[obj], detectedZ_array[obj], detectedV_array[obj], detectedRange_array[obj], detectedAzimuth_array[obj], detectedElevAngle_array[obj], detectedSNR_array[obj], detectedNoise_array[obj]))
+                # the 1st TLV must be type 1
+                if tlvType == 1 and tlvLen < totalPacketNumBytes:#MMWDEMO_UART_MSG_DETECTED_POINTS
+
+                    # TLV type 1 contains x, y, z, v values of all detect objects.
+                    # each x, y, z, v are 32-bit float in IEEE 754 single-precision binary floating-point format, so every 16 bytes represent x, y, z, v values of one detect objects.
+
+                    # for each detect objects, extract/convert float x, y, z, v values and calculate range profile and azimuth
+                    for obj in range(numDetObj):
+                        # convert byte0 to byte3 to float x value
+                        x = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset:tlvStart + offset+4:1]),'hex'))[0]
+
+                        # convert byte4 to byte7 to float y value
+                        y = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+4:tlvStart + offset+8:1]),'hex'))[0]
+
+                        # convert byte8 to byte11 to float z value
+                        z = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+8:tlvStart + offset+12:1]),'hex'))[0]
+
+                        # convert byte12 to byte15 to float v value
+                        v = struct.unpack('<f', codecs.decode(binascii.hexlify(data[tlvStart + offset+12:tlvStart + offset+16:1]),'hex'))[0]
+
+                        # calculate range profile from x, y, z
+                        compDetectedRange = math.sqrt((x * x)+(y * y)+(z * z))
+
+                        # calculate azimuth from x, y
+                        if y == 0:
+                            if x >= 0:
+                                detectedAzimuth = 90
+                            else:
+                                detectedAzimuth = -90
+                        else:
+                            detectedAzimuth = math.atan(x/y) * 180 / PI
+
+                        # calculate elevation angle from x, y, z
+                        if x == 0 and y == 0:
+                            if z >= 0:
+                                detectedElevAngle = 90
+                            else:
+                                detectedElevAngle = -90
+                        else:
+                            detectedElevAngle = math.atan(z/math.sqrt((x * x)+(y * y))) * 180 / PI
+
+                        detectedX_array.append(x)
+                        detectedY_array.append(y)
+                        detectedZ_array.append(z)
+                        detectedV_array.append(v)
+                        detectedRange_array.append(compDetectedRange)
+                        detectedAzimuth_array.append(detectedAzimuth)
+                        detectedElevAngle_array.append(detectedElevAngle)
+
+                        offset = offset + 16
+                    # end of for obj in range(numDetObj) for 1st TLV
+
+                # Process the 2nd TLV
+                tlvStart = tlvStart + 8 + tlvLen
+
+                tlvType    = getUint32(data[tlvStart+0:tlvStart+4:1])
+                tlvLen     = getUint32(data[tlvStart+4:tlvStart+8:1])
+                offset = 8
+
+                print("The 2nd TLV")
+                print("    type %d" % (tlvType))
+                print("    len %d bytes" % (tlvLen))
+
+                if tlvType == 7:
+
+                    # TLV type 7 contains snr and noise of all detect objects.
+                    # each snr and noise are 16-bit integer represented by 2 bytes, so every 4 bytes represent snr and noise of one detect objects.
+
+                    # for each detect objects, extract snr and noise
+                    for obj in range(numDetObj):
+                        # byte0 and byte1 represent snr. convert 2 bytes to 16-bit integer
+                        snr   = getUint16(data[tlvStart + offset + 0:tlvStart + offset + 2:1])
+                        # byte2 and byte3 represent noise. convert 2 bytes to 16-bit integer
+                        noise = getUint16(data[tlvStart + offset + 2:tlvStart + offset + 4:1])
+
+                        detectedSNR_array.append(snr)
+                        detectedNoise_array.append(noise)
+
+                        offset = offset + 4
+                else:
+                    for obj in range(numDetObj):
+                        detectedSNR_array.append(0)
+                        detectedNoise_array.append(0)
+                # end of if tlvType == 7
+
+                #print("                  x(m)         y(m)         z(m)        v(m/s)    Com0range(m)  azimuth(deg)  elevAngle(deg)  snr(0.1dB)    noise(0.1dB)")
+                #for obj in range(numDetObj):
+                #    print("    obj%3d: %12f %12f %12f %12f %12f %12f %12d %12d %12d" % (obj, detectedX_array[obj], detectedY_array[obj], detectedZ_array[obj], detectedV_array[obj], detectedRange_array[obj], detectedAzimuth_array[obj], detectedElevAngle_array[obj], detectedSNR_array[obj], detectedNoise_array[obj]))
 
     return (result, headerStartIndex, totalPacketNumBytes, numDetObj, numTlv, subFrameNumber, detectedX_array, detectedY_array, detectedZ_array, detectedV_array, detectedRange_array, detectedAzimuth_array, detectedElevAngle_array, detectedSNR_array, detectedNoise_array)
 
