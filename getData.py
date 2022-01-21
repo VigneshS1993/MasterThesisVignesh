@@ -17,8 +17,8 @@ def readserialData(port):
 if __name__ == '__main__':
     print("We are in get data file")
     configFile = r'D:\Master Thesis\Config_files_for_testing\Optimal\profile_2022_01_13T12_35_27_476_13_01_2022_1.cfg'
-    configPorts = ['COM11']#, 'COM13']
-    dataPorts = ['COM10']#, 'COM12']
+    configPorts = ['COM13']#'COM11']#,
+    dataPorts = ['COM12']#['COM10']#,
     rawDataSynthesisFINAL.sensorConfiguration(configFile, configPorts)
     fileName = r'D:\Master Thesis\RadarTestData\radarData.txt'
     while True:
